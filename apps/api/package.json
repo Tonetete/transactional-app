@@ -6,7 +6,11 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/main.ts"
+    "dev": "tsx --env-file=../../.env src/main.ts",
+    "dev:setup": "tsx --env-file=../../.env src/dev/setup.ts",
+    "dev:relay": "tsx --env-file=../../.env src/relay-main.ts",
+    "dev:worker": "tsx --env-file=../../.env src/dev/worker.ts",
+    "dev:token": "tsx --env-file=../../.env src/dev/token.ts"
   },
   "dependencies": {
     "@acex/shared": "workspace:*",
