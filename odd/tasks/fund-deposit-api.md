@@ -13,7 +13,7 @@ Source: specs/01-PRD-SPEC.md (details also in 02/03 specs).
 - S8 (agreed assumptions): amounts as integer cents (bigint) + currency; same key with different payload → 409; transactional outbox.
 
 ## Tasks
-- [ ] T1 (S4,S8) Nx workspace scaffold: apps/api, packages/shared, vitest config, git — route: inline — commit: -
+- [x] T1 (S4,S8) Nx workspace scaffold: apps/api, packages/shared, vitest config, git — route: inline — commit: e0a77cc
 - [ ] T2 (S4,S7,S8) DB migrations: tenants, accounts, transactions, outbox, RLS policies; Testcontainers harness — inline — -
 - [ ] T3 (S3,S8) Request validation (amount > 0, ceiling, currency, headers) — inline — -
 - [ ] T4 (S1,S5,S6) Deposit endpoint: PENDING tx + outbox event, 202, correlation ID — inline — -
