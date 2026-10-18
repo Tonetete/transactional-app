@@ -62,6 +62,9 @@ export function buildApp({ db, jwtSecret }: AppDeps) {
       correlationId: req.correlationId,
       request: parsed.value,
     });
+    if (result.kind === "conflict") {
+      return fail(req, reply, 409, "IDEMPOTENCY_KEY_CONFLICT", "Idempotency-Key was already used with a different request");
+    }
     return reply.status(result.created ? 202 : 200).send({
       transaction_id: result.transactionId,
       status: result.status,

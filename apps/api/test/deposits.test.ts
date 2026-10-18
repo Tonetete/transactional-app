@@ -143,3 +143,93 @@ describe("existing behavior preserved", () => {
     expect(res.json()).toEqual({ status: "ok" });
   });
 });
+
+describe("idempotency (S2)", () => {
+  it("replaying the exact same request returns 200 with the original transaction id and creates nothing", async () => {
+    const first = await post({ key: "idk_999", correlation: "corr-first" });
+    expect(first.statusCode).toBe(202);
+    const before = [await count("transactions"), await count("outbox")];
+
+    const replay = await post({ key: "idk_999", correlation: "corr-retry" });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toMatchObject({
+      transaction_id: first.json().transaction_id,
+      status: "PENDING",
+      created: false,
+      correlation_id: "corr-retry",
+    });
+    expect([await count("transactions"), await count("outbox")]).toEqual(before);
+  });
+
+  it("reports the current status of the original transaction on replay", async () => {
+    const first = await post({ key: "idk_status" });
+    await t.admin.updateTable("transactions").set({ status: "PROCESSING" }).where("id", "=", first.json().transaction_id).execute();
+    const replay = await post({ key: "idk_status" });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json().status).toBe("PROCESSING");
+  });
+
+  it("rejects the same key with a different payload with 409 and stores nothing new", async () => {
+    const first = await post({ key: "idk_conflict" });
+    const before = [await count("transactions"), await count("outbox")];
+    const res = await post({ key: "idk_conflict", payload: { ...body, amount_cents: 6_000_000 } });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: "IDEMPOTENCY_KEY_CONFLICT", correlation_id: expect.any(String) });
+    expect(res.json().transaction_id).toBeUndefined();
+    expect([await count("transactions"), await count("outbox")]).toEqual(before);
+    const orig = await t.admin.selectFrom("transactions").select("amount_cents").where("id", "=", first.json().transaction_id).executeTakeFirstOrThrow();
+    expect(orig.amount_cents).toBe("5000000");
+  });
+
+  it("rejects the same key from a different user of the same tenant with 409", async () => {
+    await post({ key: "idk_user" });
+    const res = await post({ key: "idk_user", user: "usr_other" });
+    expect(res.statusCode).toBe(409);
+  });
+
+  it("treats IBAN spacing as the same request", async () => {
+    const a = await post({ key: "idk_norm" });
+    const b = await post({
+      key: "idk_norm",
+      payload: { ...body, source_account: { ...body.source_account, iban: "GB82 WEST 1234 5698 7654 32" } },
+    });
+    expect(b.statusCode).toBe(200);
+    expect(b.json().transaction_id).toBe(a.json().transaction_id);
+  });
+
+  it("concurrent identical requests create exactly one transaction and one event", async () => {
+    const results = await Promise.all(Array.from({ length: 10 }, () => post({ key: "idk_race" })));
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 200, 200, 200, 200, 200, 200, 200, 200, 202]);
+    expect(new Set(results.map((r) => r.json().transaction_id)).size).toBe(1);
+    const rows = await t.admin.selectFrom("transactions").select("id").where("idempotency_key", "=", "idk_race").execute();
+    expect(rows).toHaveLength(1);
+    const events = await t.admin.selectFrom("outbox").select("id").where("transaction_id", "=", rows[0]!.id).execute();
+    expect(events).toHaveLength(1);
+  });
+});
+
+describe("tenant isolation (S4)", () => {
+  it("the same idempotency key in another tenant creates an independent transaction", async () => {
+    const a = await post({ key: "idk_shared", tenant: "tnt_abc" });
+    const b = await post({ key: "idk_shared", tenant: "tnt_xyz" });
+    expect(a.statusCode).toBe(202);
+    expect(b.statusCode).toBe(202);
+    expect(b.json().transaction_id).not.toBe(a.json().transaction_id);
+    const rows = await t.admin.selectFrom("transactions").select(["id", "tenant_id"]).where("idempotency_key", "=", "idk_shared").execute();
+    expect(rows.map((r) => r.tenant_id).sort()).toEqual(["tnt_abc", "tnt_xyz"]);
+  });
+
+  it("a replay never resolves to another tenant's transaction", async () => {
+    const a = await post({ key: "idk_private", tenant: "tnt_abc" });
+    const b = await post({ key: "idk_private", tenant: "tnt_xyz" });
+    expect(b.json().created).toBe(true);
+    expect(b.json().transaction_id).not.toBe(a.json().transaction_id);
+  });
+
+  it("a token for a tenant that does not exist cannot create data", async () => {
+    const before = await count("transactions");
+    const res = await post({ key: "idk_ghost", tenant: "tnt_ghost" });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(await count("transactions")).toBe(before);
+  });
+});
