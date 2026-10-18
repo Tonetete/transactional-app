@@ -25,6 +25,9 @@ pnpm --filter @acex/api dev:worker   # SQS -> settlement (BANK_MODE=clear|reject
 ```
 
 ## Try it
+Easiest: `scripts/deposit.sh [idempotency_key] [amount_cents] [tenant] [user]` (no multi-line pasting).
+
+Or by hand:
 ```bash
 TOKEN=$(pnpm -s --filter @acex/api dev:token tnt_abc usr_123)
 curl -i -X POST localhost:3000/v1/deposits \
