@@ -15,7 +15,7 @@ Source: specs/02-SYSTEM-SPEC.md §3-§5 (infra §1,2,4,5-network belongs to phas
 - [x] T2 (S3,S6) Worker handler: state transitions + single credit under redelivery; BankClient port + simulated adapter — inline — 5f9febd
 - [x] T3 (S2,S4) Failure handling: bank down -> retry, DLQ after 3 receives; API still 202 — inline — df66d05
 - [x] T4 (S5) Structured JSON logger with correlation id in API, publisher, worker — inline — b15303d
-- [ ] T5 (S1-S6) End-to-end test: deposit -> publish -> worker -> balance — inline — -
+- [x] T5 (S1-S6) End-to-end test: deposit -> publish -> worker -> balance — inline — b1d4e39
 
 ## Log
 - L1: "y la fase 2>"
