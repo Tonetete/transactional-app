@@ -15,7 +15,7 @@ Source: specs/01-PRD-SPEC.md (details also in 02/03 specs).
 ## Tasks
 - [x] T1 (S4,S8) Nx workspace scaffold: apps/api, packages/shared, vitest config, git — route: inline — commit: e0a77cc
 - [x] T2 (S4,S7,S8) DB migrations: tenants, accounts, transactions, outbox, RLS policies; Testcontainers harness — inline — bcbabe8
-- [ ] T3 (S3,S8) Request validation (amount > 0, ceiling, currency, headers) — inline — -
+- [x] T3 (S3,S8) Request validation (amount > 0, ceiling, currency, headers) — inline — 3999f76
 - [ ] T4 (S1,S5,S6) Deposit endpoint: PENDING tx + outbox event, 202, correlation ID — inline — -
 - [ ] T5 (S2,S8) Idempotency: replay → 200 same ID; conflicting payload → 409; concurrent race — inline — -
 - [ ] T6 (S4) Tenant isolation tests via public API — inline — -
@@ -24,3 +24,4 @@ Source: specs/01-PRD-SPEC.md (details also in 02/03 specs).
 - L1: "vamos a trabajar en un nuevo proyecto, he definido las fases de los specs en la carpeta @specs a tu disposición. Empecemos por @specs/01-PRD-SPEC.md"
 - L2: "sí, por cierto se me olvidó definir de que tenemos un frontend también que debería ser hecho en next.js"
 - L3: decisions: monorepo "pero usando nx"; frontend: solo backend ahora; Fastify; Kysely + Vitest + Testcontainers.
+- L4 (decision, agent): body is {amount_cents, currency, source_account:{holder_name, iban}}; ceiling MAX_DEPOSIT_CENTS = $1,000,000.00 (spec says only "capped below an operational ceiling") — user to confirm.

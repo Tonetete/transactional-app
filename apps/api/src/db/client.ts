@@ -48,9 +48,18 @@ export function createDb(connectionString: string): Db {
 }
 
 /** Runs fn in a transaction whose RLS context is the given tenant (SET LOCAL semantics). */
-export function withTenant<T>(db: Db, tenantId: string, fn: (trx: Kysely<Database>) => Promise<T>): Promise<T> {
+export function withTenant<T>(
+  db: Db,
+  tenantId: string,
+  fn: (trx: Kysely<Database>) => Promise<T>,
+  correlationId?: string,
+): Promise<T> {
   return db.transaction().execute(async (trx) => {
     await sql`select set_config('app.current_tenant_id', ${tenantId}, true)`.execute(trx);
+    if (correlationId) {
+      // application_name is printed by Postgres log prefixes (%a), tying DB logs to the request.
+      await sql`select set_config('application_name', ${`corr:${correlationId}`}, true)`.execute(trx);
+    }
     return fn(trx);
   });
 }
