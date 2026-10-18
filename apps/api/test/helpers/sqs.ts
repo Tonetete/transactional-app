@@ -36,3 +36,27 @@ export async function receiveAll(sqs: SQSClient, queueUrl: string, rounds = 3): 
   }
   return out;
 }
+
+import { DeleteMessageCommand } from "@aws-sdk/client-sqs";
+import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
+
+/** Stands in for the Lambda event source mapping: one receive, one handler call, delete the successes. */
+export async function pollOnce(
+  sqs: SQSClient,
+  queueUrl: string,
+  handler: (e: SQSEvent) => Promise<SQSBatchResponse>,
+): Promise<{ received: number; failed: number }> {
+  const r = await sqs.send(
+    new ReceiveMessageCommand({ QueueUrl: queueUrl, MaxNumberOfMessages: 10, WaitTimeSeconds: 1, MessageAttributeNames: ["All"] }),
+  );
+  const messages = r.Messages ?? [];
+  if (messages.length === 0) return { received: 0, failed: 0 };
+  const res = await handler({
+    Records: messages.map((m) => ({ messageId: m.MessageId!, receiptHandle: m.ReceiptHandle!, body: m.Body! })),
+  } as SQSEvent);
+  const failed = new Set(res.batchItemFailures.map((f) => f.itemIdentifier));
+  for (const m of messages) {
+    if (!failed.has(m.MessageId!)) await sqs.send(new DeleteMessageCommand({ QueueUrl: queueUrl, ReceiptHandle: m.ReceiptHandle! }));
+  }
+  return { received: messages.length, failed: failed.size };
+}
