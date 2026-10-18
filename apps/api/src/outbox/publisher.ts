@@ -1,11 +1,13 @@
 import { SendMessageBatchCommand, type SQSClient } from "@aws-sdk/client-sqs";
 import type { Db } from "../db/client.js";
+import { noopLogger, type Logger } from "../logger.js";
 
 export interface PublisherConfig {
   db: Db; // connected as the outbox_relay role
   sqs: SQSClient;
   queueUrl: string;
   batchSize?: number;
+  logger?: Logger;
 }
 
 const SQS_BATCH_LIMIT = 10;
@@ -16,12 +18,12 @@ const SQS_BATCH_LIMIT = 10;
  * at-least-once: if the process dies after SQS accepted a message but before commit, the event
  * is sent again, which the idempotent consumer tolerates.
  */
-export function publishPending({ db, sqs, queueUrl, batchSize = SQS_BATCH_LIMIT }: PublisherConfig): Promise<number> {
+export function publishPending({ db, sqs, queueUrl, batchSize = SQS_BATCH_LIMIT, logger = noopLogger }: PublisherConfig): Promise<number> {
   const limit = Math.min(batchSize, SQS_BATCH_LIMIT);
   return db.transaction().execute(async (trx) => {
     const rows = await trx
       .selectFrom("outbox")
-      .select(["id", "tenant_id", "event_type", "correlation_id", "payload"])
+      .select(["id", "tenant_id", "transaction_id", "event_type", "correlation_id", "payload"])
       .where("published_at", "is", null)
       .orderBy("created_at")
       .limit(limit)
@@ -46,10 +48,23 @@ export function publishPending({ db, sqs, queueUrl, batchSize = SQS_BATCH_LIMIT 
     );
 
     const failed = new Set((result.Failed ?? []).map((f) => f.Id));
-    const sent = rows.filter((r) => !failed.has(r.id)).map((r) => r.id);
-    if (sent.length > 0) {
-      await trx.updateTable("outbox").set({ published_at: new Date() }).where("id", "in", sent).execute();
+    const sentRows = rows.filter((r) => !failed.has(r.id));
+    if (sentRows.length > 0) {
+      await trx
+        .updateTable("outbox")
+        .set({ published_at: new Date() })
+        .where("id", "in", sentRows.map((r) => r.id))
+        .execute();
     }
-    return sent.length;
+    for (const r of sentRows) {
+      logger.info("outbox_published", {
+        correlation_id: r.correlation_id,
+        tenant_id: r.tenant_id,
+        outbox_id: r.id,
+        transaction_id: r.transaction_id,
+        event_type: r.event_type,
+      });
+    }
+    return sentRows.length;
   });
 }

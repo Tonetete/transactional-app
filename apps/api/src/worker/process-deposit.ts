@@ -1,9 +1,11 @@
 import { withTenant, type Db } from "../db/client.js";
 import type { BankClient } from "../bank.js";
+import { noopLogger, type Logger } from "../logger.js";
 
 export interface WorkerDeps {
   db: Db; // connected as app_user: every step runs under the event's tenant RLS context
   bank: BankClient;
+  logger?: Logger;
 }
 
 interface DepositRequestedEvent {
@@ -76,11 +78,11 @@ export async function processDeposit(deps: WorkerDeps, rawEvent: unknown): Promi
   });
 
   // 3. Finalize atomically: status change and credit commit together or not at all.
-  await withTenant(
+  const final = result.outcome === "CLEARED" ? "SETTLED" : "FAILED";
+  const transitioned = await withTenant(
     deps.db,
     tenantId,
     async (trx) => {
-      const final = result.outcome === "CLEARED" ? "SETTLED" : "FAILED";
       const done = await trx
         .updateTable("transactions")
         .set({ status: final, updated_at: new Date() })
@@ -95,7 +97,16 @@ export async function processDeposit(deps: WorkerDeps, rawEvent: unknown): Promi
           .where("id", "=", done.account_id)
           .execute();
       }
+      return done !== undefined;
     },
     correlationId,
   );
+  if (transitioned) {
+    (deps.logger ?? noopLogger).info(final === "SETTLED" ? "deposit_settled" : "deposit_failed", {
+      correlation_id: correlationId,
+      tenant_id: tenantId,
+      transaction_id: transactionId,
+      ...(result.outcome === "REJECTED" ? { reason: result.reason } : {}),
+    });
+  }
 }

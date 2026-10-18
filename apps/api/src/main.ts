@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { createDb } from "./db/client.js";
+import { createJsonLogger } from "./logger.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -7,5 +8,5 @@ const required = (name: string): string => {
   return v;
 };
 
-const app = buildApp({ db: createDb(required("DATABASE_URL")), jwtSecret: required("JWT_SECRET") });
+const app = buildApp({ db: createDb(required("DATABASE_URL")), jwtSecret: required("JWT_SECRET"), logger: createJsonLogger() });
 await app.listen({ port: Number(process.env.PORT ?? 3000), host: "0.0.0.0" });

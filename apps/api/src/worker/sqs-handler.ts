@@ -1,5 +1,15 @@
 import type { SQSBatchResponse, SQSEvent } from "aws-lambda";
+import { noopLogger } from "../logger.js";
 import { processDeposit, type WorkerDeps } from "./process-deposit.js";
+
+function correlationIdOf(body: string): string | undefined {
+  try {
+    const id = (JSON.parse(body) as { correlation_id?: unknown }).correlation_id;
+    return typeof id === "string" ? id : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Lambda entry point for the SQS event source mapping (ReportBatchItemFailures enabled).
@@ -12,7 +22,12 @@ export function createSqsHandler(deps: WorkerDeps) {
     for (const record of event.Records) {
       try {
         await processDeposit(deps, JSON.parse(record.body));
-      } catch {
+      } catch (err) {
+        (deps.logger ?? noopLogger).error("record_failed", {
+          correlation_id: correlationIdOf(record.body),
+          message_id: record.messageId,
+          error: err instanceof Error ? err.message : String(err),
+        });
         batchItemFailures.push({ itemIdentifier: record.messageId });
       }
     }

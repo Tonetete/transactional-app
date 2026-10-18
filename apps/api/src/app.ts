@@ -4,10 +4,12 @@ import { isValidIdempotencyKey, parseDepositRequest } from "@acex/shared";
 import { verifyBearer } from "./auth.js";
 import type { Db } from "./db/client.js";
 import { createDeposit } from "./deposits.js";
+import { noopLogger, type Logger } from "./logger.js";
 
 export interface AppDeps {
   db: Db;
   jwtSecret: string;
+  logger?: Logger;
 }
 
 declare module "fastify" {
@@ -18,7 +20,7 @@ declare module "fastify" {
 
 const CORRELATION_ID = /^[A-Za-z0-9._-]{1,128}$/;
 
-export function buildApp({ db, jwtSecret }: AppDeps) {
+export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
   const app = Fastify({ logger: false });
 
   app.decorateRequest("correlationId", "");
@@ -31,10 +33,21 @@ export function buildApp({ db, jwtSecret }: AppDeps) {
   const fail = (req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string) =>
     reply.status(status).send({ code, message, correlation_id: req.correlationId });
 
-  app.setErrorHandler((err: { statusCode?: number; code?: string }, req, reply) => {
+  app.addHook("onResponse", async (req, reply) => {
+    logger.info("request_completed", {
+      correlation_id: req.correlationId,
+      method: req.method,
+      path: req.routeOptions.url ?? req.url.split("?")[0],
+      status_code: reply.statusCode,
+      duration_ms: Math.round(reply.elapsedTime),
+    });
+  });
+
+  app.setErrorHandler((err: { statusCode?: number; message?: string }, req, reply) => {
     if (err.statusCode && err.statusCode >= 400 && err.statusCode < 500) {
       return fail(req, reply, err.statusCode, "INVALID_BODY", "Request body could not be parsed");
     }
+    logger.error("request_failed", { correlation_id: req.correlationId, error: err.message });
     return fail(req, reply, 500, "INTERNAL_ERROR", "Unexpected error");
   });
 
