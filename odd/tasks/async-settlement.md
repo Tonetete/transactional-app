@@ -14,9 +14,10 @@ Source: specs/02-SYSTEM-SPEC.md §3-§5 (infra §1,2,4,5-network belongs to phas
 - [x] T1 (S1,S5) SQS client + outbox publisher (SKIP LOCKED poll, correlation as message attribute, marks published_at) — inline — 06e5cb0
 - [x] T2 (S3,S6) Worker handler: state transitions + single credit under redelivery; BankClient port + simulated adapter — inline — 5f9febd
 - [x] T3 (S2,S4) Failure handling: bank down -> retry, DLQ after 3 receives; API still 202 — inline — df66d05
-- [ ] T4 (S5) Structured JSON logger with correlation id in API, publisher, worker — inline — -
+- [x] T4 (S5) Structured JSON logger with correlation id in API, publisher, worker — inline — b15303d
 - [ ] T5 (S1-S6) End-to-end test: deposit -> publish -> worker -> balance — inline — -
 
 ## Log
 - L1: "y la fase 2>"
 - L2: decisions: publisher as separate process/Lambda with polling; SQS standard + idempotent consumer; bank as port + simulated adapter; tests with the user's running floci-aws emulator ("tengo una instancia ejecutando de floci-aws que emula aws, podemos usar ese").
+- L3 (agent notes): worker and API share the app_user role (RLS-bound); relay uses outbox_relay (outbox only). Lambda entry src/lambda.ts still wires SimulatedBank; relay entry src/relay-main.ts (env RELAY_DATABASE_URL, QUEUE_URL). Queue redrive (maxReceiveCount 3) is queue config, verified on floci; to be declared in CDK (phase 04).
