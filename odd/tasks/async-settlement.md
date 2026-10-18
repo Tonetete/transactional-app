@@ -11,7 +11,7 @@ Source: specs/02-SYSTEM-SPEC.md §3-§5 (infra §1,2,4,5-network belongs to phas
 - S6 (PRD state machine): PENDING -> PROCESSING -> SETTLED (funds credited to the internal ledger) | FAILED (external bank rejection or fraud flag).
 
 ## Tasks
-- [ ] T1 (S1,S5) SQS client + outbox publisher (SKIP LOCKED poll, correlation as message attribute, marks published_at) — inline — -
+- [x] T1 (S1,S5) SQS client + outbox publisher (SKIP LOCKED poll, correlation as message attribute, marks published_at) — inline — 06e5cb0
 - [ ] T2 (S3,S6) Worker handler: state transitions + single credit under redelivery; BankClient port + simulated adapter — inline — -
 - [ ] T3 (S2,S4) Failure handling: bank down -> retry, DLQ after 3 receives; API still 202 — inline — -
 - [ ] T4 (S5) Structured JSON logger with correlation id in API, publisher, worker — inline — -
