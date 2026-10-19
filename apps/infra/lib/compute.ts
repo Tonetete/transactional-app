@@ -8,7 +8,7 @@ import {
   Protocol,
   SslPolicy,
 } from "aws-cdk-lib/aws-elasticloadbalancingv2";
-import { RetentionDays } from "aws-cdk-lib/aws-logs";
+import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
@@ -51,7 +51,7 @@ export class Compute extends Construct {
     apiTask.addContainer("api", {
       image,
       portMappings: [{ containerPort: API_PORT }],
-      logging: new AwsLogDriver({ streamPrefix: "api", logRetention: RetentionDays.ONE_MONTH }),
+      logging: new AwsLogDriver({ streamPrefix: "api", logGroup: new LogGroup(this, "ApiLogs", { retention: RetentionDays.ONE_MONTH }) }),
       environment: { ...dbEnv, PORT: String(API_PORT), ...(corsOrigin ? { CORS_ORIGIN: corsOrigin } : {}) },
       secrets: {
         DB_USER: EcsSecret.fromSecretsManager(database.appUserSecret, "username"),
@@ -112,7 +112,7 @@ export class Compute extends Construct {
     relayTask.addContainer("relay", {
       image,
       command: ["node", "dist/relay-main.mjs"],
-      logging: new AwsLogDriver({ streamPrefix: "relay", logRetention: RetentionDays.ONE_MONTH }),
+      logging: new AwsLogDriver({ streamPrefix: "relay", logGroup: new LogGroup(this, "RelayLogs", { retention: RetentionDays.ONE_MONTH }) }),
       environment: { ...dbEnv, QUEUE_URL: queue.queueUrl },
       secrets: {
         RELAY_DB_USER: EcsSecret.fromSecretsManager(database.relayUserSecret, "username"),

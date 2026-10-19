@@ -4,7 +4,7 @@ import { type IVpc, Peer, Port, SecurityGroup, SubnetType } from "aws-cdk-lib/aw
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
-import { RetentionDays } from "aws-cdk-lib/aws-logs";
+import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { DB_NAME, DB_PORT, type Database } from "./database.js";
@@ -39,7 +39,8 @@ export class Settlement extends Construct {
       vpc,
       vpcSubnets: { subnetType: SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [securityGroup],
-      logRetention: RetentionDays.ONE_MONTH,
+      // An explicit log group (not the deprecated logRetention custom resource, whose Lambda must call back over HTTPS).
+      logGroup: new LogGroup(this, "LogGroup", { retention: RetentionDays.ONE_MONTH }),
       // ESM output: the entry uses top-level await (credentials are loaded at cold start). The banner
       // restores `require` for CommonJS dependencies (pg) inside the ESM bundle.
       bundling: {

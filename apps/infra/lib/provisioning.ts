@@ -1,7 +1,7 @@
 import { CfnOutput, Fn, Stack } from "aws-cdk-lib";
 import { type IVpc, Peer, Port, SecurityGroup, SubnetType } from "aws-cdk-lib/aws-ec2";
 import { AwsLogDriver, type ICluster, type ContainerImage, FargateTaskDefinition, Secret as EcsSecret } from "aws-cdk-lib/aws-ecs";
-import { RetentionDays } from "aws-cdk-lib/aws-logs";
+import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
 import { DB_NAME, DB_PORT, type Database } from "./database.js";
 
@@ -29,7 +29,7 @@ export class Provisioning extends Construct {
     this.taskDefinition.addContainer("provision", {
       image,
       command: ["node", "dist/provision-main.mjs"],
-      logging: new AwsLogDriver({ streamPrefix: "provision", logRetention: RetentionDays.ONE_MONTH }),
+      logging: new AwsLogDriver({ streamPrefix: "provision", logGroup: new LogGroup(this, "ProvisionLogs", { retention: RetentionDays.ONE_MONTH }) }),
       environment: { DB_HOST: database.instance.dbInstanceEndpointAddress, DB_PORT: String(DB_PORT), DB_NAME },
       secrets: {
         ADMIN_DB_USER: EcsSecret.fromSecretsManager(database.adminSecret, "username"),
