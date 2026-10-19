@@ -1,3 +1,4 @@
+import { parseDepositRequestedEvent } from "@acex/shared";
 import { withTenant, type Db } from "../db/client.js";
 import type { BankClient } from "../bank.js";
 import { noopLogger, type Logger } from "../logger.js";
@@ -8,40 +9,15 @@ export interface WorkerDeps {
   logger?: Logger;
 }
 
-interface DepositRequestedEvent {
-  event_type?: string;
-  tenant_id: string;
-  correlation_id: string;
-  data: {
-    transaction_id: string;
-    source_account: { holder_name: string; iban: string };
-  };
-}
-
-function parseEvent(raw: unknown): DepositRequestedEvent {
-  const e = raw as Partial<DepositRequestedEvent> | null;
-  const d = e?.data;
-  if (
-    !e ||
-    (e.event_type !== undefined && e.event_type !== "DepositRequested") ||
-    typeof e.tenant_id !== "string" ||
-    typeof e.correlation_id !== "string" ||
-    typeof d?.transaction_id !== "string" ||
-    typeof d.source_account?.iban !== "string" ||
-    typeof d.source_account?.holder_name !== "string"
-  ) {
-    throw new Error("Invalid event: expected a DepositRequested envelope");
-  }
-  return e as DepositRequestedEvent;
-}
-
 /**
  * Settles one deposit. Safe under at-least-once delivery: the status guard in each UPDATE makes every
  * transition (and the single ledger credit that rides on SETTLED) happen at most once, and the bank
  * is called with the transaction id as idempotency reference.
  */
 export async function processDeposit(deps: WorkerDeps, rawEvent: unknown): Promise<void> {
-  const event = parseEvent(rawEvent);
+  const parsed = parseDepositRequestedEvent(rawEvent);
+  if (!parsed.ok) throw new Error(`Invalid event: ${parsed.message}`);
+  const event = parsed.event;
   const { tenant_id: tenantId, correlation_id: correlationId } = event;
   const transactionId = event.data.transaction_id;
 

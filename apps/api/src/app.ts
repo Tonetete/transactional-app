@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
-import { isValidIdempotencyKey, parseDepositRequest } from "@acex/shared";
+import { isValidIdempotencyKey, parseDepositRequest, type DepositResponse, type ErrorCode } from "@acex/shared";
 import { verifyBearer } from "./auth.js";
 import type { Db } from "./db/client.js";
 import { createDeposit } from "./deposits.js";
@@ -30,7 +30,7 @@ export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
     reply.header("x-correlation-id", req.correlationId);
   });
 
-  const fail = (req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string) =>
+  const fail = (req: FastifyRequest, reply: FastifyReply, status: number, code: ErrorCode, message: string) =>
     reply.status(status).send({ code, message, correlation_id: req.correlationId });
 
   app.addHook("onResponse", async (req, reply) => {
@@ -78,12 +78,13 @@ export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
     if (result.kind === "conflict") {
       return fail(req, reply, 409, "IDEMPOTENCY_KEY_CONFLICT", "Idempotency-Key was already used with a different request");
     }
-    return reply.status(result.created ? 202 : 200).send({
+    const response: DepositResponse = {
       transaction_id: result.transactionId,
-      status: result.status,
+      status: result.status as DepositResponse["status"],
       created: result.created,
       correlation_id: req.correlationId,
-    });
+    };
+    return reply.status(result.created ? 202 : 200).send(response);
   });
 
   return app;

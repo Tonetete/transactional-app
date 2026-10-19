@@ -1,5 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
-import type { DepositRequest } from "@acex/shared";
+import { createHash } from "node:crypto";
+import { buildDepositRequestedEvent, type DepositRequest } from "@acex/shared";
 import { withTenant, type Db } from "./db/client.js";
 
 export interface DepositInput {
@@ -81,21 +81,19 @@ export function createDeposit(db: Db, input: DepositInput): Promise<DepositResul
           transaction_id: txn.id,
           event_type: "DepositRequested",
           correlation_id: correlationId,
-          payload: JSON.stringify({
-            event_id: `evt_${randomUUID()}`,
-            event_type: "DepositRequested",
-            schema_version: 1,
-            occurred_at: new Date().toISOString(),
-            tenant_id: tenantId,
-            correlation_id: correlationId,
-            data: {
-              transaction_id: txn.id,
-              account_id: account.id,
-              amount_cents: request.amount_cents,
-              currency: request.currency,
-              source_account: request.source_account,
-            },
-          }),
+          payload: JSON.stringify(
+            buildDepositRequestedEvent({
+              tenantId,
+              correlationId,
+              data: {
+                transaction_id: txn.id,
+                account_id: account.id,
+                amount_cents: request.amount_cents,
+                currency: request.currency,
+                source_account: request.source_account,
+              },
+            }),
+          ),
         })
         .execute();
 

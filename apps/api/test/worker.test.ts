@@ -122,4 +122,12 @@ describe("processDeposit", () => {
     await expect(processDeposit({ db: t.app, bank }, { nope: true })).rejects.toThrow(/invalid event/i);
     expect(bank.calls).toHaveLength(0);
   });
+
+  it("rejects an unsupported schema_version without calling the bank", async () => {
+    const { event } = await requestDeposit("w-schema");
+    const bank = new SimulatedBank("clear");
+    const futureEvent = { ...event, schema_version: 2 };
+    await expect(processDeposit({ db: t.app, bank }, futureEvent)).rejects.toThrow(/schema_version/);
+    expect(bank.calls).toHaveLength(0);
+  });
 });
