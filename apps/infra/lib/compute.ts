@@ -12,7 +12,7 @@ import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
-import { DB_NAME, DB_PORT, type Database } from "./database.js";
+import { DB_NAME, type Database } from "./database.js";
 
 const API_PORT = 3000;
 
@@ -44,7 +44,7 @@ export class Compute extends Construct {
     // HS256 signing key shared with the token issuer (assumption until an identity provider exists).
     this.jwtSecret = new Secret(this, "JwtSecret", { generateSecretString: { excludePunctuation: true, passwordLength: 64 } });
 
-    const dbEnv = { DB_HOST: database.instance.dbInstanceEndpointAddress, DB_PORT: String(DB_PORT), DB_NAME };
+    const dbEnv = { DB_HOST: database.instance.dbInstanceEndpointAddress, DB_PORT: database.instance.dbInstanceEndpointPort, DB_NAME };
 
     // ---- API ----
     const apiTask = new FargateTaskDefinition(this, "ApiTask", { cpu: 512, memoryLimitMiB: 1024 });

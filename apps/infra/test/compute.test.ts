@@ -65,7 +65,9 @@ describe("Containers, secrets and relay (S2, S5)", () => {
     const secretNames = api.Secrets.map((s: { Name: string }) => s.Name).sort();
     expect(secretNames).toEqual(["DB_PASSWORD", "DB_USER", "JWT_SECRET"]);
     const plain = Object.fromEntries(api.Environment.map((e: { Name: string; Value: unknown }) => [e.Name, e.Value]));
-    expect(plain).toMatchObject({ DB_NAME: "fintech", DB_PORT: "5432", PORT: "3000" });
+    expect(plain).toMatchObject({ DB_NAME: "fintech", PORT: "3000" });
+    // the port comes from the instance endpoint (an emulator may not listen on 5432)
+    expect(JSON.stringify(plain.DB_PORT)).toContain("Endpoint.Port");
     expect(plain.DB_PASSWORD).toBeUndefined();
     expect(plain.DEV_LOGIN_ENABLED).toBeUndefined();
   });

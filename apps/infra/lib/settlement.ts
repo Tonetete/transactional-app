@@ -7,7 +7,7 @@ import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
-import { DB_NAME, DB_PORT, type Database } from "./database.js";
+import { DB_NAME, type Database } from "./database.js";
 import { SETTLEMENT_TIMEOUT } from "./messaging.js";
 
 export interface SettlementProps {
@@ -53,7 +53,7 @@ export class Settlement extends Construct {
       },
       environment: {
         DB_HOST: database.instance.dbInstanceEndpointAddress,
-        DB_PORT: String(DB_PORT),
+        DB_PORT: database.instance.dbInstanceEndpointPort,
         DB_NAME,
         DB_SECRET_ARN: database.appUserSecret.secretArn,
       },

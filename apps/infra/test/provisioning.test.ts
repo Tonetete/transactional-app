@@ -43,6 +43,8 @@ describe("Provisioning one-off task", () => {
     ]);
     const env = c.Environment.map((e: { Name: string }) => e.Name).sort();
     expect(env).toEqual(["DB_HOST", "DB_NAME", "DB_PORT"]);
+    const port = c.Environment.find((e: { Name: string }) => e.Name === "DB_PORT").Value;
+    expect(JSON.stringify(port)).toContain("Endpoint.Port");
   });
 
   it("gets its own security group that can reach PostgreSQL but accepts no inbound traffic", () => {

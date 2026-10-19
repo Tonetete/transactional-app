@@ -59,6 +59,7 @@ describe("Settlement Lambda (S4, S2)", () => {
     expect(fn.Properties.VpcConfig.SubnetIds).toHaveLength(2);
     const env = fn.Properties.Environment.Variables;
     expect(env.DB_NAME).toBe("fintech");
+    expect(JSON.stringify(env.DB_PORT)).toContain("Endpoint.Port");
     expect(env.DB_SECRET_ARN).toBeDefined();
     expect(JSON.stringify(env)).not.toContain("resolve:secretsmanager");
     expect(env.DB_PASSWORD).toBeUndefined();
