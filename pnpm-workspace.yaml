@@ -1,3 +1,11 @@
 packages:
   - apps/*
   - packages/*
+
+# Explicitly skip dependency build scripts (their platform binaries ship as optional packages), so installs are non-interactive in CI and Docker.
+allowBuilds:
+  cpu-features: false
+  esbuild: false
+  nx: false
+  protobufjs: false
+  ssh2: false

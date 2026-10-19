@@ -10,7 +10,8 @@
     "dev:setup": "tsx --env-file=../../.env src/dev/setup.ts",
     "dev:relay": "tsx --env-file=../../.env src/relay-main.ts",
     "dev:worker": "tsx --env-file=../../.env src/dev/worker.ts",
-    "dev:token": "tsx --env-file=../../.env src/dev/token.ts"
+    "dev:token": "tsx --env-file=../../.env src/dev/token.ts",
+    "bundle": "esbuild src/main.ts src/relay-main.ts --bundle --platform=node --target=node22 --format=esm --outdir=dist --out-extension:.js=.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@acex/shared": "workspace:*",
@@ -25,6 +26,7 @@
     "@testcontainers/postgresql": "^12.2.1",
     "@types/aws-lambda": "^8.10.164",
     "@types/pg": "^8.23.1",
+    "esbuild": "^0.28.2",
     "testcontainers": "^12.2.1"
   }
 }
