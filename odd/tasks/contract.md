@@ -11,7 +11,7 @@ Make specs/03-CONTRACT-SPEC.md the executable single source of truth: shared con
 ## Tasks
 - [x] T1 (S1,S2) Shared contract module: event envelope + schema_version validator, response and error code types; API, publisher and worker use it; contract tests — inline — 5fa3ac7 + e55c397
 - [x] T2 (S3) Optional X-Tenant-Id validated against the JWT tenant (403 TENANT_MISMATCH) — inline — 2bf1edd
-- [ ] T3 (S4,S5) Append-only ledger_entries with RLS + immutability trigger; worker writes CREDIT on settlement; balance equals sum of entries — inline — -
+- [x] T3 (S4,S5) Append-only ledger_entries with RLS + immutability trigger; worker writes CREDIT on settlement; balance equals sum of entries — inline — 10c469d
 
 ## Log
 - L1: "ok, vamos a ello pero el banco debe seguir siendo simulado ya que no tenemos acceso a la plataforma real aún."
