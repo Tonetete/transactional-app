@@ -120,3 +120,25 @@ export function parseDepositRequestedEvent(raw: unknown): ParseEventResult {
   }
   return { ok: true, event: raw as unknown as DepositRequestedEvent };
 }
+
+/** One row of GET /v1/deposits (newest first). */
+export interface DepositListItem {
+  transaction_id: string;
+  amount_cents: number;
+  currency: string;
+  status: import("./index.js").TransactionStatus;
+  created_at: string;
+}
+
+export interface DepositListResponse {
+  items: DepositListItem[];
+}
+
+/** Body and response of the development-only POST /v1/auth/dev-login. */
+export interface DevLoginRequest {
+  tenant_id: string;
+  user_id: string;
+}
+export interface DevLoginResponse extends DevLoginRequest {
+  token: string;
+}

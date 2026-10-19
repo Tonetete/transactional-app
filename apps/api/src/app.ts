@@ -1,15 +1,20 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { HEADERS, isValidIdempotencyKey, parseDepositRequest, type DepositResponse, type ErrorCode } from "@acex/shared";
+import { SignJWT } from "jose";
 import { verifyBearer } from "./auth.js";
 import type { Db } from "./db/client.js";
-import { createDeposit } from "./deposits.js";
+import { createDeposit, listDeposits } from "./deposits.js";
 import { noopLogger, type Logger } from "./logger.js";
 
 export interface AppDeps {
   db: Db;
   jwtSecret: string;
   logger?: Logger;
+  /** Mounts POST /v1/auth/dev-login, which mints tokens for anyone: local development only. */
+  devLogin?: { provisionTenant(tenantId: string): Promise<void> };
+  /** Single web origin allowed by CORS; no CORS headers are sent when unset. */
+  corsOrigin?: string;
 }
 
 declare module "fastify" {
@@ -18,9 +23,10 @@ declare module "fastify" {
   }
 }
 
+const DEV_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const CORRELATION_ID = /^[A-Za-z0-9._-]{1,128}$/;
 
-export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
+export function buildApp({ db, jwtSecret, logger = noopLogger, devLogin, corsOrigin }: AppDeps) {
   const app = Fastify({ logger: false });
 
   app.decorateRequest("correlationId", "");
@@ -28,6 +34,16 @@ export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
     const incoming = req.headers["x-correlation-id"];
     req.correlationId = typeof incoming === "string" && CORRELATION_ID.test(incoming) ? incoming : randomUUID();
     reply.header("x-correlation-id", req.correlationId);
+    if (corsOrigin && req.headers.origin === corsOrigin) {
+      reply.header("access-control-allow-origin", corsOrigin);
+      reply.header("vary", "Origin");
+      reply.header("access-control-expose-headers", "x-correlation-id");
+      if (req.method === "OPTIONS") {
+        reply.header("access-control-allow-methods", "GET, POST, OPTIONS");
+        reply.header("access-control-allow-headers", "authorization, content-type, idempotency-key, x-correlation-id, x-tenant-id");
+        return reply.status(204).send();
+      }
+    }
   });
 
   const fail = (req: FastifyRequest, reply: FastifyReply, status: number, code: ErrorCode, message: string) =>
@@ -91,6 +107,31 @@ export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
       correlation_id: req.correlationId,
     };
     return reply.status(result.created ? 202 : 200).send(response);
+  });
+
+  if (devLogin) {
+    app.post("/v1/auth/dev-login", async (req, reply) => {
+      const b = req.body as { tenant_id?: unknown; user_id?: unknown } | null;
+      const valid = (v: unknown): v is string => typeof v === "string" && DEV_ID.test(v);
+      if (!b || !valid(b.tenant_id) || !valid(b.user_id)) {
+        return fail(req, reply, 400, "INVALID_BODY", "tenant_id and user_id must be 1-64 chars of A-Z, a-z, 0-9, _ or -");
+      }
+      const tenantId = b.tenant_id;
+      await devLogin.provisionTenant(tenantId);
+      const token = await new SignJWT({ tenant_id: tenantId })
+        .setProtectedHeader({ alg: "HS256" })
+        .setSubject(b.user_id)
+        .setExpirationTime("8h")
+        .sign(new TextEncoder().encode(jwtSecret));
+      return { token, tenant_id: tenantId, user_id: b.user_id };
+    });
+  }
+
+  app.get("/v1/deposits", async (req, reply) => {
+    const claims = await verifyBearer(req.headers.authorization, jwtSecret);
+    if (!claims) return fail(req, reply, 401, "UNAUTHORIZED", "Missing or invalid bearer token");
+    const items = await listDeposits(db, claims.tenantId, claims.userId);
+    return { items };
   });
 
   return app;

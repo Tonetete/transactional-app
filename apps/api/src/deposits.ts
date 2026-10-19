@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { buildDepositRequestedEvent, type DepositRequest } from "@acex/shared";
+import { buildDepositRequestedEvent, type DepositListItem, type DepositRequest } from "@acex/shared";
 import { withTenant, type Db } from "./db/client.js";
 
 export interface DepositInput {
@@ -101,4 +101,25 @@ export function createDeposit(db: Db, input: DepositInput): Promise<DepositResul
     },
     correlationId,
   );
+}
+
+/** The caller's most recent deposits (tenant-scoped by RLS, user-scoped here), newest first. */
+export function listDeposits(db: Db, tenantId: string, userId: string, limit = 50): Promise<DepositListItem[]> {
+  return withTenant(db, tenantId, async (trx) => {
+    const rows = await trx
+      .selectFrom("transactions")
+      .select(["id", "amount_cents", "currency", "status", "created_at"])
+      .where("user_id", "=", userId)
+      .orderBy("created_at", "desc")
+      .orderBy("id", "desc")
+      .limit(limit)
+      .execute();
+    return rows.map((r) => ({
+      transaction_id: r.id,
+      amount_cents: Number(r.amount_cents),
+      currency: r.currency,
+      status: r.status,
+      created_at: r.created_at.toISOString(),
+    }));
+  });
 }
