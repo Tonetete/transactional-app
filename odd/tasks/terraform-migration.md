@@ -11,11 +11,11 @@ Re-express the CDK stack as Terraform modules with intent-named variables, keepi
 - S7: Tests: `terraform test` (mock providers, plan mode) per module plus the real floci cycle (apply, provision, `scripts/floci-smoke.sh`, destroy) as acceptance.
 
 ## Tasks
-- [x] T1 (S1,S2,S6) PR1 skeleton: `infra/` roots, provider config, .gitignore — inline
-- [x] T2 (S2,S6,S7) `network` module + test — inline
-- [x] T3 (S2,S6,S7) `messaging` module + test — inline
-- [x] T4 (S2,S6,S7) `database` module + test (secrets via random_password; `protect_data`) — inline; Risk item 1 (secrets in state)
-- [x] T5 (S1) Verify PR1 on floci: apply, no-diff plan, destroy — inline
+- [x] T1 (S1,S2,S6) PR1 skeleton: `infra/` roots, provider config, .gitignore — inline — commit 4a1abf2
+- [x] T2 (S2,S6,S7) `network` module + test — inline — commit 4a1abf2
+- [x] T3 (S2,S6,S7) `messaging` module + test — inline — commit 4a1abf2
+- [x] T4 (S2,S6,S7) `database` module + test (secrets via random_password; `protect_data`) — inline; Risk item 1 (secrets in state) — commit 4a1abf2
+- [x] T5 (S1) Verify PR1 on floci: apply, no-diff plan, destroy — inline — commit 4a1abf2
 - [ ] T6 (S2,S6) PR2 `compute` (api, relay, ALB, autoscaling) + `provisioning`
 - [ ] T7 (S2,S6) PR3 `settlement` (Lambda packaging) + `web_hosting`
 - [ ] T8 (S1,S7) PR4 scripts (deploy/destroy/smoke on Terraform, image build+push), full floci cycle
