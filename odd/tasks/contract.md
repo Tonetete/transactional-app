@@ -9,7 +9,7 @@ Make specs/03-CONTRACT-SPEC.md the executable single source of truth: shared con
 - S5: "Monetary Precision Guarantee" integer cents; "Multi-Tenant Isolation Rule (RLS)" also applies to ledger_entries.
 
 ## Tasks
-- [ ] T1 (S1,S2) Shared contract module: event envelope + schema_version validator, response and error code types; API, publisher and worker use it; contract tests — inline — -
+- [x] T1 (S1,S2) Shared contract module: event envelope + schema_version validator, response and error code types; API, publisher and worker use it; contract tests — inline — 5fa3ac7 + e55c397
 - [ ] T2 (S3) Optional X-Tenant-Id validated against the JWT tenant (403 TENANT_MISMATCH) — inline — -
 - [ ] T3 (S4,S5) Append-only ledger_entries with RLS + immutability trigger; worker writes CREDIT on settlement; balance equals sum of entries — inline — -
 

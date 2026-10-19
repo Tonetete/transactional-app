@@ -19,11 +19,13 @@ async function post(opts: {
   payload?: unknown;
   correlation?: string;
   auth?: boolean;
+  tenantHeader?: string;
 }) {
   const headers: Record<string, string> = {};
   if (opts.auth !== false) headers.authorization = `Bearer ${await token(opts.tenant ?? "tnt_abc", opts.user ?? "usr_123")}`;
   if (opts.key !== null) headers["idempotency-key"] = opts.key ?? "idk_1";
   if (opts.correlation) headers["x-correlation-id"] = opts.correlation;
+  if (opts.tenantHeader) headers["x-tenant-id"] = opts.tenantHeader;
   return app.inject({ method: "POST", url: "/v1/deposits", headers, payload: (opts.payload ?? body) as object });
 }
 
@@ -231,5 +233,32 @@ describe("tenant isolation (S4)", () => {
     const res = await post({ key: "idk_ghost", tenant: "tnt_ghost" });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
     expect(await count("transactions")).toBe(before);
+  });
+});
+
+describe("X-Tenant-Id header (S3)", () => {
+  it("is accepted when it matches the tenant of the JWT", async () => {
+    const res = await post({ key: "th-ok", tenantHeader: "tnt_abc" });
+    expect(res.statusCode).toBe(202);
+  });
+
+  it("rejects a header naming another tenant with 403 and stores nothing", async () => {
+    const before = [await count("transactions"), await count("outbox")];
+    const res = await post({ key: "th-bad", tenant: "tnt_abc", tenantHeader: "tnt_xyz", correlation: "corr-th" });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ code: "TENANT_MISMATCH", correlation_id: "corr-th" });
+    expect([await count("transactions"), await count("outbox")]).toEqual(before);
+  });
+
+  it("does not leak whether the other tenant exists (same response for unknown and known tenants)", async () => {
+    const a = await post({ key: "th-a", tenantHeader: "tnt_xyz" });
+    const b = await post({ key: "th-b", tenantHeader: "tnt_nope" });
+    expect([a.statusCode, b.statusCode]).toEqual([403, 403]);
+    expect(a.json().message).toBe(b.json().message);
+  });
+
+  it("an unauthenticated request still gets 401, not 403", async () => {
+    const res = await post({ key: "th-401", auth: false, tenantHeader: "tnt_xyz" });
+    expect(res.statusCode).toBe(401);
   });
 });

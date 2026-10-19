@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
-import { isValidIdempotencyKey, parseDepositRequest, type DepositResponse, type ErrorCode } from "@acex/shared";
+import { HEADERS, isValidIdempotencyKey, parseDepositRequest, type DepositResponse, type ErrorCode } from "@acex/shared";
 import { verifyBearer } from "./auth.js";
 import type { Db } from "./db/client.js";
 import { createDeposit } from "./deposits.js";
@@ -56,6 +56,12 @@ export function buildApp({ db, jwtSecret, logger = noopLogger }: AppDeps) {
   app.post("/v1/deposits", async (req, reply) => {
     const claims = await verifyBearer(req.headers.authorization, jwtSecret);
     if (!claims) return fail(req, reply, 401, "UNAUTHORIZED", "Missing or invalid bearer token");
+
+    // The JWT is the tenant authority; an explicit header may only restate it.
+    const claimedTenant = req.headers[HEADERS.tenantId];
+    if (claimedTenant !== undefined && claimedTenant !== claims.tenantId) {
+      return fail(req, reply, 403, "TENANT_MISMATCH", "X-Tenant-Id does not match the authenticated tenant");
+    }
 
     const key = req.headers["idempotency-key"];
     if (!isValidIdempotencyKey(key)) {
