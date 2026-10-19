@@ -9,3 +9,9 @@ next-env.d.ts
 cdk.out
 cdk.context.json
 apps/api/dist
+
+.terraform/
+*.tfstate
+*.tfstate.*
+infra/**/lambda.zip
+infra/modules/**/.terraform.lock.hcl
