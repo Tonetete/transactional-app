@@ -16,7 +16,8 @@ const stack = new Stack(app, "Acex", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION ?? "us-east-1" },
 });
 const network = new Network(stack, "Network");
-const database = new Database(stack, "Database", { vpc: network.vpc });
+const local = app.node.tryGetContext("target") === "floci";
+const database = new Database(stack, "Database", { vpc: network.vpc, local });
 const messaging = new Messaging(stack, "Messaging");
 new Settlement(stack, "Settlement", { vpc: network.vpc, queue: messaging.queue, database });
 const image = ContainerImage.fromAsset(fileURLToPath(new URL("../../..", import.meta.url)), { file: "apps/api/Dockerfile" });

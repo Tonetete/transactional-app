@@ -58,3 +58,19 @@ describe("Database (S2)", () => {
     expect(JSON.stringify(dbSg.Properties.SecurityGroupEgress ?? [])).not.toContain("0.0.0.0/0");
   });
 });
+
+describe("Database in the local (floci) profile", () => {
+  it("is destroyable: no deletion protection and DESTROY removal, but still Multi-AZ and encrypted", () => {
+    const stack = new Stack(undefined, "L", { env: { account: "111111111111", region: "us-east-1" } });
+    new Database(stack, "Database", { vpc: new Network(stack, "Network").vpc, local: true });
+    const t = Template.fromStack(stack);
+    t.hasResourceProperties("AWS::RDS::DBInstance", { DeletionProtection: false, MultiAZ: true, StorageEncrypted: true });
+    const instance = Object.values(t.findResources("AWS::RDS::DBInstance"))[0]!;
+    expect(instance.DeletionPolicy).toBe("Delete");
+  });
+
+  it("keeps deletion protection and a snapshot on delete by default", () => {
+    const instance = Object.values(synth().t.findResources("AWS::RDS::DBInstance"))[0]!;
+    expect(instance.DeletionPolicy).toBe("Snapshot");
+  });
+});

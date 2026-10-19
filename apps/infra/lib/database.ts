@@ -1,4 +1,4 @@
-import { Duration } from "aws-cdk-lib";
+import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { type IConnectable, type IVpc, Port, SecurityGroup, SubnetType, InstanceClass, InstanceSize, InstanceType } from "aws-cdk-lib/aws-ec2";
 import { Credentials, DatabaseInstance, DatabaseInstanceEngine, PostgresEngineVersion } from "aws-cdk-lib/aws-rds";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
@@ -9,6 +9,8 @@ export const DB_PORT = 5432;
 
 export interface DatabaseProps {
   vpc: IVpc;
+  /** Local emulator profile: the instance and secrets can be destroyed with the stack. */
+  local?: boolean;
 }
 
 /** Multi-AZ encrypted PostgreSQL in the isolated subnets; credentials only live in Secrets Manager. */
@@ -22,7 +24,7 @@ export class Database extends Construct {
   readonly relayUserSecret: Secret;
   private readonly securityGroup: SecurityGroup;
 
-  constructor(scope: Construct, id: string, { vpc }: DatabaseProps) {
+  constructor(scope: Construct, id: string, { vpc, local = false }: DatabaseProps) {
     super(scope, id);
 
     // No egress at all: the database never initiates connections.
@@ -56,7 +58,8 @@ export class Database extends Construct {
       credentials: Credentials.fromSecret(this.adminSecret),
       allocatedStorage: 50,
       backupRetention: Duration.days(7),
-      deletionProtection: true,
+      deletionProtection: !local,
+      removalPolicy: local ? RemovalPolicy.DESTROY : RemovalPolicy.SNAPSHOT,
     });
   }
 
