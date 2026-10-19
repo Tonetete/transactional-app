@@ -1,5 +1,6 @@
 import { buildApp, type AppDeps } from "./app.js";
 import { createDb } from "./db/client.js";
+import { resolveDatabaseUrl } from "./db/url.js";
 import { createJsonLogger } from "./logger.js";
 
 const required = (name: string): string => {
@@ -20,7 +21,7 @@ if (process.env.DEV_LOGIN_ENABLED === "true") {
 }
 
 const app = buildApp({
-  db: createDb(required("DATABASE_URL")),
+  db: createDb(resolveDatabaseUrl(process.env, "DATABASE_URL")),
   jwtSecret: required("JWT_SECRET"),
   logger: createJsonLogger(),
   devLogin,

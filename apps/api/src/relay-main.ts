@@ -1,5 +1,6 @@
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { createDb } from "./db/client.js";
+import { resolveDatabaseUrl } from "./db/url.js";
 import { createJsonLogger } from "./logger.js";
 import { publishPending } from "./outbox/publisher.js";
 
@@ -10,7 +11,7 @@ const required = (name: string): string => {
 };
 
 const logger = createJsonLogger();
-const db = createDb(required("RELAY_DATABASE_URL"));
+const db = createDb(resolveDatabaseUrl(process.env, "RELAY_DATABASE_URL", "RELAY_DB"));
 const sqs = new SQSClient({});
 const queueUrl = required("QUEUE_URL");
 const idleMs = Number(process.env.RELAY_IDLE_MS ?? 500);
