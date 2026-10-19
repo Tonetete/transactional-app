@@ -13,7 +13,7 @@ Next.js app (apps/web) with a deposit form and a live list of transactions, buil
 - [x] T1 (S3,S5) API: GET /v1/deposits, dev login route behind DEV_LOGIN_ENABLED, CORS; shared types — inline, own commit (Risk item 2) — 55ac781
 - [x] T2 (S2) apps/web scaffold (Next.js, vitest, tokens) + atomic folder structure — inline — 3128da4
 - [x] T3 (S1,S2,S4) atoms/molecules/organisms (DepositForm, TransactionList) with tests — inline — 51e431e
-- [ ] T4 (S1,S3) templates/pages, login flow, API client, polling; docs/LOCAL-DEV.md — inline —
+- [x] T4 (S1,S3) templates/pages, login flow, API client, polling; docs/LOCAL-DEV.md — inline — f31140f
 
 ## Log
 - L1: "ok, vamos a ello pero el banco debe seguir siendo simulado ya que no tenemos acceso a la plataforma real aún." (phase 04: CDK + Next.js; user chose frontend first)
