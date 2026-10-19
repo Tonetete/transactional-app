@@ -47,8 +47,9 @@ scripts/floci-web-deploy.sh    # static build of apps/web -> S3; prints the Clou
 scripts/floci-destroy.sh       # empties the web bucket, then cdk destroy
 ```
 Verified on floci 2.3.0: a from-scratch cycle (destroy, deploy, provision, smoke, web deploy) passes. Things to know:
-- **Run one mode at a time.** `dev:setup` creates `TransactionsDLQ` with other attributes than the stack does, so the
-  stack fails with "queue already exists". Delete the dev queues first (`aws sqs delete-queue`) or `cdk destroy`.
+- **Both modes can coexist.** Local dev uses `transactions-queue` / `transactions-dlq`; the stack uses `TransactionsQueue` /
+  `TransactionsDLQ`. (If your `.env` still has `DLQ_NAME=TransactionsDLQ`, change it: `dev:setup` and the stack would
+  fight over that name.) Destroying the stack does not touch the dev queues.
 - **ECR needs a user-defined network.** floci reaches its registry container by name, which the default bridge cannot
   resolve (image push fails with `503`). `scripts/floci-deploy.sh` connects `floci` and `floci-aws-ecr-registry` to a `floci-net` network.
 - **Not reachable from the host:** the ALB listener (443) and the ECS task containers are not published by the floci
@@ -73,7 +74,7 @@ curl -i -X POST localhost:3000/v1/deposits \
 # 202 PENDING; repeat the same call -> 200 with the same transaction_id (status becomes SETTLED once the worker ran)
 ```
 Amounts are integer cents (`5000000` = $50,000.00). Follow one deposit through the logs with `grep corr-001`.
-Set `BANK_MODE=down` and restart the worker to watch retries and the DLQ (`TransactionsDLQ`).
+Set `BANK_MODE=down` and restart the worker to watch retries and the DLQ (`transactions-dlq`).
 
 ## Notes
 - After pulling new migrations, re-run `pnpm --filter @acex/api dev:setup` (idempotent).

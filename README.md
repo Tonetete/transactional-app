@@ -353,7 +353,7 @@ scripts/floci-web-deploy.sh               # static build -> S3; site served by f
 scripts/floci-destroy.sh
 ```
 
-Run **one mode at a time** (both create the same queue names). floci limitations found while doing this (ECR registry
+The two modes use different queue names (`transactions-queue` locally, `TransactionsQueue` in the stack), so they can coexist. floci limitations found while doing this (ECR registry
 network, `logRetention`, unpublished ALB port, …) are listed in `docs/LOCAL-DEV.md`.
 
 ## 11. Tests
