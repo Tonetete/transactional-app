@@ -11,6 +11,7 @@
     "dev:relay": "tsx --env-file=../../.env src/relay-main.ts",
     "dev:worker": "tsx --env-file=../../.env src/dev/worker.ts",
     "dev:token": "tsx --env-file=../../.env src/dev/token.ts",
+    "bundle:lambda": "esbuild src/lambda.ts --bundle --platform=node --target=node22 --format=esm --main-fields=module,main --minify --sourcemap --outfile=dist/lambda/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "bundle": "esbuild src/main.ts src/relay-main.ts src/provision-main.ts --bundle --platform=node --target=node22 --format=esm --outdir=dist --out-extension:.js=.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\" && mkdir -p dist/migrations && cp src/db/migrations/*.sql dist/migrations/"
   },
   "dependencies": {
