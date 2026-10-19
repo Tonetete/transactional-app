@@ -51,3 +51,49 @@ module "database" {
   subnet_ids   = module.network.isolated_subnet_ids
   protect_data = false
 }
+
+module "compute" {
+  source             = "../../modules/compute"
+  name               = local.name
+  vpc_id             = module.network.vpc_id
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+  image              = var.image
+  certificate_arn    = var.certificate_arn
+  queue_url          = module.messaging.queue_url
+  queue_arn          = module.messaging.queue_arn
+
+  enable_http_listener        = true
+  enable_dev_login            = true
+  aws_endpoint_override       = "http://floci:4566"
+  secret_recovery_window_days = 0
+
+  database = {
+    address               = module.database.address
+    port                  = module.database.port
+    name                  = module.database.database_name
+    security_group_id     = module.database.security_group_id
+    admin_secret_arn      = module.database.admin_secret_arn
+    app_user_secret_arn   = module.database.app_user_secret_arn
+    relay_user_secret_arn = module.database.relay_user_secret_arn
+  }
+}
+
+module "provisioning" {
+  source             = "../../modules/provisioning"
+  name               = local.name
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+  cluster_arn        = module.compute.cluster_arn
+  image              = var.image
+
+  database = {
+    address               = module.database.address
+    port                  = module.database.port
+    name                  = module.database.database_name
+    security_group_id     = module.database.security_group_id
+    admin_secret_arn      = module.database.admin_secret_arn
+    app_user_secret_arn   = module.database.app_user_secret_arn
+    relay_user_secret_arn = module.database.relay_user_secret_arn
+  }
+}

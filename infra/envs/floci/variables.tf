@@ -14,3 +14,13 @@ variable "aws_endpoint" {
   type        = string
   default     = "http://localhost:4566"
 }
+
+variable "image" {
+  description = "Container image with the bundled API/relay/provisioning bundles."
+  type        = string
+}
+
+variable "certificate_arn" {
+  description = "ACM certificate of the load balancer's HTTPS listener."
+  type        = string
+}
