@@ -1,22 +1,17 @@
 #!/usr/bin/env bash
 # End-to-end check of the stack deployed to floci: tenant -> JWT -> deposit -> relay -> SQS -> Lambda -> SETTLED.
 # The ALB listener (443) is not published by the floci container, so the API task container is called directly.
-# usage: [IAC=terraform] scripts/floci-smoke.sh [tenant] [user]   (IAC=cdk, the default, targets the CDK stack)
+# usage: scripts/floci-smoke.sh [tenant] [user]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/floci-env.sh
 TENANT="${1:-tnt_cloud}"; USER_ID="${2:-usr_cloud}"
-IAC="${IAC:-cdk}"
-if [ "$IAC" = terraform ]; then
-  ADMIN_SECRET=acex-floci/database/admin; JWT_SECRET_NAME=acex-floci/api/jwt; DB_FILTER="starts_with(DBInstanceIdentifier,'acex-floci-')"
-else
-  ADMIN_SECRET=AdminSecret; JWT_SECRET_NAME=JwtSecret; DB_FILTER="starts_with(DBInstanceIdentifier,'acex-') && !starts_with(DBInstanceIdentifier,'acex-floci-')"
-fi
+ADMIN_SECRET=acex-floci/database/admin; JWT_SECRET_NAME=acex-floci/api/jwt
 secret() { aws secretsmanager get-secret-value --secret-id "$1" --query SecretString --output text; }
 arn_of() { aws secretsmanager list-secrets --query "SecretList[?contains(Name,'$1')].ARN | [0]" --output text; }
 field() { python3 -c "import json,sys; print(json.load(sys.stdin)['$1'])"; }
 
-read -r DB_HOST DB_PORT < <(aws rds describe-db-instances --query "DBInstances[?$DB_FILTER].[Endpoint.Address,Endpoint.Port] | [0]" --output text)
+read -r DB_HOST DB_PORT < <(aws rds describe-db-instances --query "DBInstances[?starts_with(DBInstanceIdentifier,'acex-floci-')].[Endpoint.Address,Endpoint.Port] | [0]" --output text)
 ADMIN_PW=$(secret "$(arn_of "$ADMIN_SECRET")" | field password)
 JWT=$(secret "$(arn_of "$JWT_SECRET_NAME")")
 
@@ -27,15 +22,8 @@ docker run --rm --network floci-net -e PGPASSWORD="$ADMIN_PW" postgres:16-alpine
 echo "2. token"
 TOKEN=$(JWT_SECRET="$JWT" pnpm -s --filter @acex/api dev:token "$TENANT" "$USER_ID")
 
-if [ "$IAC" = terraform ]; then
-  TASK_ID=$(aws ecs list-tasks --cluster acex-floci --service-name api --query 'taskArns[0]' --output text | sed 's#.*/##')
-  API_CONTAINER="floci-aws-ecs-$TASK_ID-api"   # floci names the container after the task id
-else
-  CDK_CLUSTER=$(aws ecs list-clusters --query 'clusterArns[?contains(@, `:cluster/Acex-`)] | [0]' --output text)
-  TASK_ID=$(aws ecs list-tasks --cluster "$CDK_CLUSTER" --query 'taskArns' --output text | tr '\t' '\n' | sed 's#.*/##' | while read -r id; do
-    docker inspect "floci-aws-ecs-$id-api" >/dev/null 2>&1 && { echo "$id"; break; }; done)
-  API_CONTAINER="floci-aws-ecs-$TASK_ID-api"
-fi
+TASK_ID=$(aws ecs list-tasks --cluster acex-floci --service-name api --query 'taskArns[0]' --output text | sed 's#.*/##')
+API_CONTAINER="floci-aws-ecs-$TASK_ID-api"   # floci names the container after the task id
 # The emulated database and the task containers sit on floci-net (created by the deploy scripts): join it, or the
 # addresses are unreachable from a throwaway container on the default bridge.
 read -r API_NET API_IP < <(docker inspect "$API_CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{$v.IPAddress}}{{"\n"}}{{end}}' | head -1)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Destroys infra/envs/floci (Terraform) on floci. usage: scripts/floci-tf-destroy.sh
+# Destroys infra/envs/floci (Terraform) on floci. usage: scripts/floci-destroy.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/floci-env.sh

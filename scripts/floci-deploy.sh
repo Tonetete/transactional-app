@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deploys infra/envs/floci (Terraform) to floci: registry, image build+push, everything else, then runs the provisioning
-# task (migrations + role passwords). usage: scripts/floci-tf-deploy.sh [extra terraform apply args]
+# task (migrations + role passwords). usage: scripts/floci-deploy.sh [extra terraform apply args]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/floci-env.sh
