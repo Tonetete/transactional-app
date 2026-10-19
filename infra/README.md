@@ -1,6 +1,6 @@
 # infra: Terraform
 
-Replaces `apps/infra` (AWS CDK), which stays until the migration is complete (`odd/tasks/terraform-migration.md`).
+Declares the AWS topology of `specs/04-IAC-SPEC.md`. It replaced the former AWS CDK app (`odd/tasks/terraform-migration.md`).
 
 ```
 infra/
@@ -10,23 +10,22 @@ infra/
     floci/   local emulator: endpoint on every service, disposable data
 ```
 
-A module describes one concern and exposes only what its consumers need. The CDK `local` flag is replaced by explicit
+A module describes one concern and exposes only what its consumers need. The former CDK `local` flag is replaced by explicit
 inputs: `protect_data` (deletion protection, final snapshot, secret recovery window), `enable_http_listener`,
 `enable_dev_login`, `aws_endpoint_override` and `secret_recovery_window_days`. `envs/aws` leaves them at their safe defaults.
 
 ## Floci
 ```bash
-scripts/floci-tf-deploy.sh                    # registry, image build+push, everything else, provisioning task
-IAC=terraform scripts/floci-smoke.sh          # tenant -> JWT -> deposit -> relay -> SQS -> Lambda -> SETTLED
-IAC=terraform scripts/floci-web-deploy.sh     # static build of apps/web -> S3, prints the CloudFront URL
-scripts/floci-tf-destroy.sh
+scripts/floci-deploy.sh                       # registry, image build+push, everything else, provisioning task
+scripts/floci-smoke.sh          # tenant -> JWT -> deposit -> relay -> SQS -> Lambda -> SETTLED
+scripts/floci-web-deploy.sh     # static build of apps/web -> S3, prints the CloudFront URL
+scripts/floci-destroy.sh
 ```
-Names are `acex-floci-*`, so this stack coexists with the CDK one in the same floci (the smoke script picks the right
-containers for each `IAC` value). Deploy order matters: the registry module is applied first (`-target`), the image is
+Names are `acex-floci-*`. Deploy order matters: the registry module is applied first (`-target`), the image is
 pushed with a tag from the git commit, and then the whole root is applied with that tag.
 
 Verified on floci 2.3.0: from-scratch deploy (98 resources) plus provisioning task, smoke ending `SETTLED`, web deploy,
-an empty second plan, and a clean destroy (~2 min). `scripts/floci-patch-cloudfront.sh` is not needed with Terraform.
+an empty second plan, and a clean destroy (~2 min). Unlike CloudFormation on floci, Terraform keeps the CloudFront behavior methods and policies, so no patch step exists.
 `terraform apply` by hand also works: `-var image_tag=<tag> -var certificate_arn=<arn>` after pushing the image.
 
 ## Tests

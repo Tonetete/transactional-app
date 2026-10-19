@@ -4,7 +4,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Part of every resource name, so this root coexists with the CDK stack deployed to the same floci."
+  description = "Part of every resource name (<project>-<environment>), so several roots can coexist in one floci."
   type        = string
   default     = "floci"
 }
