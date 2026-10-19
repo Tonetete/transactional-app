@@ -64,9 +64,22 @@ export async function processDeposit(deps: WorkerDeps, rawEvent: unknown): Promi
         .set({ status: final, updated_at: new Date() })
         .where("id", "=", transactionId)
         .where("status", "=", "PROCESSING")
-        .returning(["account_id", "amount_cents"])
+        .returning(["account_id", "amount_cents", "currency"])
         .executeTakeFirst();
       if (done && final === "SETTLED") {
+        // Same DB transaction as the balance change: the entry and the credit exist together or not at all.
+        await trx
+          .insertInto("ledger_entries")
+          .values({
+            tenant_id: tenantId,
+            account_id: done.account_id,
+            transaction_id: transactionId,
+            entry_type: "CREDIT",
+            amount_cents: done.amount_cents,
+            currency: done.currency,
+            correlation_id: correlationId,
+          })
+          .execute();
         await trx
           .updateTable("accounts")
           .set((eb) => ({ balance_cents: eb("balance_cents", "+", done.amount_cents) }))

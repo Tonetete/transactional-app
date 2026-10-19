@@ -29,6 +29,17 @@ export interface Database {
     created_at: Generated<Date>;
     updated_at: Generated<Date>;
   };
+  ledger_entries: {
+    id: Generated<string>;
+    tenant_id: string;
+    account_id: string;
+    transaction_id: string;
+    entry_type: "CREDIT";
+    amount_cents: Cents;
+    currency: string;
+    correlation_id: string;
+    created_at: Generated<Date>;
+  };
   outbox: {
     id: Generated<string>;
     tenant_id: string;

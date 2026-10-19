@@ -131,3 +131,56 @@ describe("processDeposit", () => {
     expect(bank.calls).toHaveLength(0);
   });
 });
+
+describe("ledger entries (immutable record of settled funds)", () => {
+  const entries = (txnId: string) =>
+    t.admin.selectFrom("ledger_entries").selectAll().where("transaction_id", "=", txnId).execute();
+
+  it("settlement appends exactly one CREDIT entry that matches the transaction", async () => {
+    const { id, event } = await requestDeposit("l-ok");
+    await processDeposit({ db: t.app, bank: new SimulatedBank("clear") }, event);
+    const rows = await entries(id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      tenant_id: "tnt_abc",
+      account_id: (await txn(id)).account_id,
+      entry_type: "CREDIT",
+      amount_cents: "5000000",
+      currency: "USD",
+      correlation_id: "corr-l-ok",
+    });
+  });
+
+  it("redelivery and concurrent deliveries never add a second entry", async () => {
+    const { id, event } = await requestDeposit("l-race");
+    const bank = new SimulatedBank("clear");
+    await Promise.all(Array.from({ length: 5 }, () => processDeposit({ db: t.app, bank }, event)));
+    await processDeposit({ db: t.app, bank }, event);
+    expect(await entries(id)).toHaveLength(1);
+  });
+
+  it("a rejected or unsettled deposit has no entry", async () => {
+    const rejected = await requestDeposit("l-rej");
+    await processDeposit({ db: t.app, bank: new SimulatedBank("reject") }, rejected.event);
+    const down = await requestDeposit("l-down");
+    await expect(processDeposit({ db: t.app, bank: new SimulatedBank("down") }, down.event)).rejects.toThrow();
+    expect(await entries(rejected.id)).toHaveLength(0);
+    expect(await entries(down.id)).toHaveLength(0);
+  });
+
+  it("account balance equals the sum of its ledger entries", async () => {
+    const user = "usr_sum";
+    for (const key of ["l-sum-1", "l-sum-2", "l-sum-3"]) {
+      const { event } = await requestDeposit(key, "tnt_abc", user);
+      await processDeposit({ db: t.app, bank: new SimulatedBank("clear") }, event);
+    }
+    const acc = await t.admin.selectFrom("accounts").selectAll().where("user_id", "=", user).executeTakeFirstOrThrow();
+    const sum = await t.admin
+      .selectFrom("ledger_entries")
+      .select((eb) => eb.fn.sum("amount_cents").as("total"))
+      .where("account_id", "=", acc.id)
+      .executeTakeFirstOrThrow();
+    expect(acc.balance_cents).toBe("15000000");
+    expect(String(sum.total)).toBe(acc.balance_cents);
+  });
+});

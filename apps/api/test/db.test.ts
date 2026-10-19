@@ -91,3 +91,54 @@ describe("schema and RLS", () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe("ledger_entries table", () => {
+  const entry = (tenant: string, txnId: string) => ({
+    tenant_id: tenant,
+    account_id: `acc_${tenant}`,
+    transaction_id: txnId,
+    entry_type: "CREDIT" as const,
+    amount_cents: "5000000",
+    currency: "USD",
+    correlation_id: "c1",
+  });
+  let txnA: string;
+  let txnB: string;
+
+  beforeAll(async () => {
+    txnA = (await withTenant(t.app, "tnt_a", (db) => db.selectFrom("transactions").select("id").where("idempotency_key", "=", "k1").executeTakeFirstOrThrow())).id;
+    txnB = (await withTenant(t.app, "tnt_b", (db) => db.selectFrom("transactions").select("id").where("idempotency_key", "=", "kb").executeTakeFirstOrThrow())).id;
+    await withTenant(t.app, "tnt_a", (db) => db.insertInto("ledger_entries").values(entry("tnt_a", txnA)).execute());
+  });
+
+  it("is isolated per tenant by RLS", async () => {
+    expect(await withTenant(t.app, "tnt_b", (db) => db.selectFrom("ledger_entries").selectAll().execute())).toEqual([]);
+    expect(await t.app.selectFrom("ledger_entries").selectAll().execute()).toEqual([]);
+    await expect(
+      withTenant(t.app, "tnt_a", (db) => db.insertInto("ledger_entries").values(entry("tnt_b", txnB)).execute()),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("allows only one entry per transaction", async () => {
+    await expect(
+      withTenant(t.app, "tnt_a", (db) => db.insertInto("ledger_entries").values(entry("tnt_a", txnA)).execute()),
+    ).rejects.toThrow(/duplicate key/);
+  });
+
+  it("rejects non-positive amounts", async () => {
+    await expect(
+      withTenant(t.app, "tnt_b", (db) =>
+        db.insertInto("ledger_entries").values({ ...entry("tnt_b", txnB), amount_cents: "0" }).execute(),
+      ),
+    ).rejects.toThrow(/check constraint/);
+  });
+
+  it("cannot be updated or deleted, not even by a superuser", async () => {
+    await expect(
+      withTenant(t.app, "tnt_a", (db) => sql`update ledger_entries set amount_cents = 1`.execute(db)),
+    ).rejects.toThrow(/permission denied/);
+    await expect(sql`update ledger_entries set amount_cents = 1`.execute(t.admin)).rejects.toThrow(/immutable/);
+    await expect(sql`delete from ledger_entries`.execute(t.admin)).rejects.toThrow(/immutable/);
+    await expect(sql`truncate ledger_entries`.execute(t.admin)).rejects.toThrow(/immutable/);
+  });
+});

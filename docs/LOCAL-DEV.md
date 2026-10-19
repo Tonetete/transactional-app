@@ -38,3 +38,9 @@ curl -i -X POST localhost:3000/v1/deposits \
 ```
 Amounts are integer cents (`5000000` = $50,000.00). Follow one deposit through the logs with `grep corr-001`.
 Set `BANK_MODE=down` and restart the worker to watch retries and the DLQ (`TransactionsDLQ`).
+
+## Notes
+- After pulling new migrations, re-run `pnpm --filter @acex/api dev:setup` (idempotent).
+- Settled funds are recorded in the append-only `ledger_entries` table (one `CREDIT` per settled transaction);
+  `accounts.balance_cents` always equals the sum of its entries. `UPDATE`/`DELETE` on it are blocked, even for `root`.
+- `X-Tenant-Id` is optional; if sent it must equal the tenant in the JWT, otherwise `403 TENANT_MISMATCH`.
