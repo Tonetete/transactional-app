@@ -12,7 +12,9 @@ const required = (name: string): string => {
 
 const logger = createJsonLogger();
 const db = createDb(resolveDatabaseUrl(process.env, "RELAY_DATABASE_URL", "RELAY_DB"));
-const sqs = new SQSClient({});
+// Resolve the endpoint from the environment/region, not from the queue URL: an emulator returns queue URLs
+// ("http://localhost:4566/...") that are unreachable from inside a task container, while AWS_ENDPOINT_URL is.
+const sqs = new SQSClient({ useQueueUrlAsEndpoint: false });
 const queueUrl = required("QUEUE_URL");
 const idleMs = Number(process.env.RELAY_IDLE_MS ?? 500);
 
