@@ -24,6 +24,16 @@ pnpm --filter @acex/api dev:relay    # outbox -> SQS
 pnpm --filter @acex/api dev:worker   # SQS -> settlement (BANK_MODE=clear|reject|down in .env)
 ```
 
+## Web app (apps/web)
+Set in `.env` (see `.env.example`): `DEV_LOGIN_ENABLED=true` and `CORS_ORIGIN=http://localhost:3001`, then restart the API.
+```bash
+pnpm --filter @acex/web dev          # http://localhost:3001 (API url: NEXT_PUBLIC_API_URL, default http://localhost:3000)
+```
+Sign in with any tenant/user id (simulated login, `POST /v1/auth/dev-login`; it provisions the tenant and mints a dev JWT,
+so it exists only when `DEV_LOGIN_ENABLED=true` and must never be enabled outside local development). Then request a
+deposit; the list polls `GET /v1/deposits` every 3 s, so you see `PENDING` turn into `SETTLED`/`FAILED` while the relay and worker run.
+Components follow atomic design: see `apps/web/src/components/README.md`.
+
 ## Try it
 Easiest: `scripts/deposit.sh [idempotency_key] [amount_cents] [tenant] [user]` (no multi-line pasting).
 
