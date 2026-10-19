@@ -27,7 +27,9 @@ describe("atomic design layering (S2)", () => {
         for (const m of readFileSync(file, "utf8").matchAll(/from "([^"]+)"/g)) {
           const t = target(file, m[1]!);
           if (!t) continue;
-          const [top, sub] = relative(src, t).split(sep);
+          const rel = relative(src, t);
+          if (rel === join("lib", "format")) continue; // the one pure helper module components may use
+          const [top, sub] = rel.split(sep);
           expect(["components"], `${file} imports ${m[1]}`).toContain(top);
           expect(layers.indexOf(sub as (typeof layers)[number]), `${file} imports ${m[1]}`).toBeLessThanOrEqual(rank);
         }
