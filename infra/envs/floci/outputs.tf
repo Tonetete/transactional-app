@@ -25,3 +25,11 @@ output "web_bucket_name" {
 output "web_url" {
   value = module.web_hosting.url
 }
+
+output "repository_url" {
+  value = module.registry.repository_url
+}
+
+output "cluster_name" {
+  value = module.compute.cluster_name
+}

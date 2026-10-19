@@ -15,8 +15,8 @@ variable "aws_endpoint" {
   default     = "http://localhost:4566"
 }
 
-variable "image" {
-  description = "Container image with the bundled API/relay/provisioning bundles."
+variable "image_tag" {
+  description = "Tag of the API image in the registry module's repository (scripts push it before the full apply)."
   type        = string
 }
 

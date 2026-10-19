@@ -18,7 +18,14 @@ provider "aws" {
 }
 
 locals {
-  name = "${var.project}-${var.environment}"
+  name  = "${var.project}-${var.environment}"
+  image = "${module.registry.repository_url}:${var.image_tag}"
+}
+
+module "registry" {
+  source       = "../../modules/registry"
+  name         = local.name
+  protect_data = true
 }
 
 module "network" {
@@ -45,7 +52,7 @@ module "compute" {
   vpc_id             = module.network.vpc_id
   public_subnet_ids  = module.network.public_subnet_ids
   private_subnet_ids = module.network.private_subnet_ids
-  image              = var.image
+  image              = local.image
   certificate_arn    = var.certificate_arn
   cors_origin        = var.cors_origin
   queue_url          = module.messaging.queue_url
@@ -68,7 +75,7 @@ module "provisioning" {
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids
   cluster_arn        = module.compute.cluster_arn
-  image              = var.image
+  image              = local.image
 
   database = {
     address               = module.database.address

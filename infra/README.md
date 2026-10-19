@@ -4,7 +4,7 @@ Replaces `apps/infra` (AWS CDK), which stays until the migration is complete (`o
 
 ```
 infra/
-  modules/   network, messaging, database, compute, provisioning, settlement, web_hosting
+  modules/   registry, network, messaging, database, compute, provisioning, settlement, web_hosting
   envs/
     aws/     real AWS: remote S3 state, data protected
     floci/   local emulator: endpoint on every service, disposable data
@@ -16,15 +16,18 @@ inputs: `protect_data` (deletion protection, final snapshot, secret recovery win
 
 ## Floci
 ```bash
-cd infra/envs/floci
-pnpm --filter @acex/api bundle:lambda      # the settlement Lambda is bundled by esbuild before apply
-terraform init
-terraform apply -var image=<ecr image> -var certificate_arn=<acm arn>   # names are acex-floci-*, coexisting with the CDK stack
-# the certificate comes from scripts/floci-cert.sh; image build+push moves into the deploy script in a later slice
-terraform destroy
+scripts/floci-tf-deploy.sh                    # registry, image build+push, everything else, provisioning task
+IAC=terraform scripts/floci-smoke.sh          # tenant -> JWT -> deposit -> relay -> SQS -> Lambda -> SETTLED
+IAC=terraform scripts/floci-web-deploy.sh     # static build of apps/web -> S3, prints the CloudFront URL
+scripts/floci-tf-destroy.sh
 ```
-Resource names include `<project>-<environment>`; the CDK stack uses different names, so both can live in one floci.
-Verified on floci 2.3.0: apply with network/messaging/database only (38 resources, ~1.5 min); with compute and provisioning also wired, apply (83 resources, ~1.5 min), an empty second plan (`terraform plan -detailed-exitcode` exits 0), ECS services `api`/`relay` reaching their desired RUNNING counts, and a clean destroy (~2.5 min, no leftover secrets or queues).
+Names are `acex-floci-*`, so this stack coexists with the CDK one in the same floci (the smoke script picks the right
+containers for each `IAC` value). Deploy order matters: the registry module is applied first (`-target`), the image is
+pushed with a tag from the git commit, and then the whole root is applied with that tag.
+
+Verified on floci 2.3.0: from-scratch deploy (98 resources) plus provisioning task, smoke ending `SETTLED`, web deploy,
+an empty second plan, and a clean destroy (~2 min). `scripts/floci-patch-cloudfront.sh` is not needed with Terraform.
+`terraform apply` by hand also works: `-var image_tag=<tag> -var certificate_arn=<arn>` after pushing the image.
 
 ## Tests
 `terraform test` runs against mocked providers (no floci needed), one file per module:
