@@ -13,7 +13,7 @@ Declare the AWS topology of specs/04-IAC-SPEC.md in TypeScript CDK (apps/infra),
 - [x] T1 (S1,S6) apps/infra scaffold + NetworkStack/construct: VPC 3 tiers multi-AZ; synth + assertions — inline — da5de35
 - [x] T2 (S2) Database construct: RDS Postgres Multi-AZ encrypted, Secrets Manager secrets, SG rules; API env support for DB_* secrets — inline — 6e5f219
 - [x] T3 (S4) Messaging + settlement Lambda: queue, TransactionsDLQ (maxReceiveCount 3), event source mapping with batch failures — inline — cc9afb3
-- [ ] T4 (S3,S5) Compute: Fargate API + ALB (443) + relay service, task roles, Dockerfile; no wildcard IAM test; docs — inline —
+- [x] T4 (S3,S5) Compute: Fargate API + ALB (443) + relay service, task roles, Dockerfile; no wildcard IAM test; docs — inline — 62e316e
 
 ## Log
 - L1: "ok, vamos a ello pero el banco debe seguir siendo simulado ya que no tenemos acceso a la plataforma real aún." (phase 04: CDK + Next.js)
