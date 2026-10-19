@@ -11,7 +11,7 @@ Next.js app (apps/web) with a deposit form and a live list of transactions, buil
 
 ## Tasks
 - [x] T1 (S3,S5) API: GET /v1/deposits, dev login route behind DEV_LOGIN_ENABLED, CORS; shared types — inline, own commit (Risk item 2) — 55ac781
-- [ ] T2 (S2) apps/web scaffold (Next.js, vitest, tokens) + atomic folder structure — inline —
+- [x] T2 (S2) apps/web scaffold (Next.js, vitest, tokens) + atomic folder structure — inline — 3128da4
 - [ ] T3 (S1,S2,S4) atoms/molecules/organisms (DepositForm, TransactionList) with tests — inline —
 - [ ] T4 (S1,S3) templates/pages, login flow, API client, polling; docs/LOCAL-DEV.md — inline —
 
