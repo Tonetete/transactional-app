@@ -24,3 +24,9 @@ variable "certificate_arn" {
   description = "ACM certificate of the load balancer's HTTPS listener."
   type        = string
 }
+
+variable "settlement_source_dir" {
+  description = "Bundled settlement function: build it first with `pnpm --filter @acex/api bundle:lambda`."
+  type        = string
+  default     = "../../../apps/api/dist/lambda"
+}

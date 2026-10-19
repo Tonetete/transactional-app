@@ -17,3 +17,11 @@ output "provision_command" {
 output "load_balancer_dns_name" {
   value = module.compute.load_balancer_dns_name
 }
+
+output "web_bucket_name" {
+  value = module.web_hosting.bucket_name
+}
+
+output "web_url" {
+  value = module.web_hosting.url
+}

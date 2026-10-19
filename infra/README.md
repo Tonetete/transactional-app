@@ -4,7 +4,7 @@ Replaces `apps/infra` (AWS CDK), which stays until the migration is complete (`o
 
 ```
 infra/
-  modules/   network, messaging, database, compute, provisioning   (settlement, web_hosting follow)
+  modules/   network, messaging, database, compute, provisioning, settlement, web_hosting
   envs/
     aws/     real AWS: remote S3 state, data protected
     floci/   local emulator: endpoint on every service, disposable data
@@ -17,6 +17,7 @@ inputs: `protect_data` (deletion protection, final snapshot, secret recovery win
 ## Floci
 ```bash
 cd infra/envs/floci
+pnpm --filter @acex/api bundle:lambda      # the settlement Lambda is bundled by esbuild before apply
 terraform init
 terraform apply -var image=<ecr image> -var certificate_arn=<acm arn>   # names are acex-floci-*, coexisting with the CDK stack
 # the certificate comes from scripts/floci-cert.sh; image build+push moves into the deploy script in a later slice

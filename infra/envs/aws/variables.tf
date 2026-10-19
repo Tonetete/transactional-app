@@ -28,3 +28,15 @@ variable "cors_origin" {
   type        = string
   default     = null
 }
+
+variable "settlement_source_dir" {
+  description = "Bundled settlement function: build it first with `pnpm --filter @acex/api bundle:lambda`."
+  type        = string
+  default     = "../../../apps/api/dist/lambda"
+}
+
+variable "web_bucket_name" {
+  description = "Globally unique name of the web bucket (defaults to <project>-<environment>-web)."
+  type        = string
+  default     = null
+}

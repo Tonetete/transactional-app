@@ -80,3 +80,30 @@ module "provisioning" {
     relay_user_secret_arn = module.database.relay_user_secret_arn
   }
 }
+
+module "settlement" {
+  source             = "../../modules/settlement"
+  name               = local.name
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+  source_dir         = var.settlement_source_dir
+  queue_arn          = module.messaging.queue_arn
+  timeout_seconds    = module.messaging.consumer_timeout_seconds
+
+
+  database = {
+    address             = module.database.address
+    port                = module.database.port
+    name                = module.database.database_name
+    security_group_id   = module.database.security_group_id
+    app_user_secret_arn = module.database.app_user_secret_arn
+  }
+}
+
+module "web_hosting" {
+  source       = "../../modules/web_hosting"
+  name         = local.name
+  protect_data = true
+  bucket_name  = var.web_bucket_name
+
+}
