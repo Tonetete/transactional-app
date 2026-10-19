@@ -34,11 +34,13 @@ export class Compute extends Construct {
   readonly relayService: FargateService;
   readonly loadBalancer: ApplicationLoadBalancer;
   readonly jwtSecret: Secret;
+  readonly cluster: Cluster;
 
   constructor(scope: Construct, id: string, { vpc, database, queue, certificateArn, image, corsOrigin }: ComputeProps) {
     super(scope, id);
 
     const cluster = new Cluster(this, "Cluster", { vpc });
+    this.cluster = cluster;
     // HS256 signing key shared with the token issuer (assumption until an identity provider exists).
     this.jwtSecret = new Secret(this, "JwtSecret", { generateSecretString: { excludePunctuation: true, passwordLength: 64 } });
 

@@ -5,6 +5,7 @@ import { Compute } from "../lib/compute.js";
 import { Database } from "../lib/database.js";
 import { Messaging } from "../lib/messaging.js";
 import { Network } from "../lib/network.js";
+import { Provisioning } from "../lib/provisioning.js";
 import { Settlement } from "../lib/settlement.js";
 
 const app = new App();
@@ -18,11 +19,13 @@ const network = new Network(stack, "Network");
 const database = new Database(stack, "Database", { vpc: network.vpc });
 const messaging = new Messaging(stack, "Messaging");
 new Settlement(stack, "Settlement", { vpc: network.vpc, queue: messaging.queue, database });
-new Compute(stack, "Compute", {
+const image = ContainerImage.fromAsset(fileURLToPath(new URL("../../..", import.meta.url)), { file: "apps/api/Dockerfile" });
+const compute = new Compute(stack, "Compute", {
   vpc: network.vpc,
   database,
   queue: messaging.queue,
   certificateArn,
   corsOrigin: app.node.tryGetContext("corsOrigin") as string | undefined,
-  image: ContainerImage.fromAsset(fileURLToPath(new URL("../../..", import.meta.url)), { file: "apps/api/Dockerfile" }),
+  image,
 });
+new Provisioning(stack, "Provisioning", { vpc: network.vpc, database, cluster: compute.cluster, image });

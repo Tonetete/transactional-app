@@ -1,7 +1,7 @@
 // Local development bootstrap: migrate, set role passwords, seed tenants, create queue + DLQ on floci.
 import { CreateQueueCommand, GetQueueAttributesCommand, SQSClient } from "@aws-sdk/client-sqs";
 import pg from "pg";
-import { runMigrations } from "../db/migrate.js";
+import { provisionDatabase } from "../db/provision.js";
 
 const env = (name: string): string => {
   const v = process.env[name];
@@ -10,14 +10,10 @@ const env = (name: string): string => {
 };
 
 const adminUrl = env("ADMIN_DATABASE_URL");
-await runMigrations(adminUrl);
+await provisionDatabase(adminUrl, { app_user: env("APP_DB_PASSWORD"), outbox_relay: env("RELAY_DB_PASSWORD") });
 
 const admin = new pg.Client({ connectionString: adminUrl });
 await admin.connect();
-for (const [role, passwordVar] of [["app_user", "APP_DB_PASSWORD"], ["outbox_relay", "RELAY_DB_PASSWORD"]] as const) {
-  const { rows } = await admin.query("select format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text) as stmt", [role, env(passwordVar)]);
-  await admin.query(rows[0].stmt);
-}
 for (const tenant of [["tnt_abc", "Tenant ABC"], ["tnt_xyz", "Tenant XYZ"]]) {
   await admin.query("insert into tenants (id, name) values ($1, $2) on conflict (id) do nothing", tenant);
 }
