@@ -6,6 +6,7 @@ import { Database } from "../lib/database.js";
 import { Messaging } from "../lib/messaging.js";
 import { Network } from "../lib/network.js";
 import { Provisioning } from "../lib/provisioning.js";
+import { WebHosting } from "../lib/web-hosting.js";
 import { Settlement } from "../lib/settlement.js";
 
 const app = new App();
@@ -30,3 +31,4 @@ const compute = new Compute(stack, "Compute", {
   image,
 });
 new Provisioning(stack, "Provisioning", { vpc: network.vpc, database, cluster: compute.cluster, image });
+new WebHosting(stack, "Web", { local });

@@ -34,6 +34,31 @@ so it exists only when `DEV_LOGIN_ENABLED=true` and must never be enabled outsid
 deposit; the list polls `GET /v1/deposits` every 3 s, so you see `PENDING` turn into `SETTLED`/`FAILED` while the relay and worker run.
 Components follow atomic design: see `apps/web/src/components/README.md`.
 
+## Deploy the whole stack to floci (CDK)
+Instead of running the API, relay and worker as local processes, `apps/infra` can deploy everything to floci:
+VPC, RDS, SQS + DLQ, settlement Lambda, ECS (API x2, relay), ALB and the web hosting (S3 + CloudFront).
+```bash
+scripts/floci-deploy.sh        # bootstrap (once), import a self-signed ACM cert, build+push the image, cdk deploy
+# run the provisioning task printed in the stack output `ProvisionCommand` (migrations + role passwords):
+source scripts/floci-env.sh
+eval "$(aws cloudformation describe-stacks --stack-name Acex --query "Stacks[0].Outputs[?contains(OutputKey,'ProvisionCommand')].OutputValue" --output text)"
+scripts/floci-smoke.sh         # tenant -> JWT -> deposit -> relay -> SQS -> Lambda -> SETTLED
+scripts/floci-web-deploy.sh    # static build of apps/web -> S3; prints the CloudFront URL served by floci
+```
+Verified on floci 2.3.0 (all steps above pass). Things to know:
+- **Run one mode at a time.** `dev:setup` creates `TransactionsDLQ` with other attributes than the stack does, so the
+  stack fails with "queue already exists". Delete the dev queues first (`aws sqs delete-queue`) or `cdk destroy`.
+- **ECR needs a user-defined network.** floci reaches its registry container by name, which the default bridge cannot
+  resolve (image push fails with `503`). `scripts/floci-deploy.sh` connects `floci` and `floci-aws-ecr-registry` to a `floci-net` network.
+- **Not reachable from the host:** the ALB listener (443) and the ECS task containers are not published by the floci
+  container (it only publishes 4566), so `floci-smoke.sh` calls the API task container through the Docker bridge.
+  To use the ALB or the deployed web against the deployed API from a browser, recreate floci publishing the listener port.
+- **No `logRetention`:** that CDK feature is a custom-resource Lambda that calls back over HTTPS, which fails on floci;
+  log groups are declared explicitly instead.
+- The RDS endpoint port is whatever floci assigns (7001+), so containers use the instance endpoint port, not 5432.
+- SQS queue URLs from floci point at `localhost:4566`; the relay resolves its SQS endpoint from the environment instead.
+- Tenants are not seeded in the stack (`floci-smoke.sh` inserts its own); the login route is not enabled in the deployed API.
+
 ## Try it
 Easiest: `scripts/deposit.sh [idempotency_key] [amount_cents] [tenant] [user]` (no multi-line pasting).
 
