@@ -154,7 +154,7 @@ database interaction through `withTenant(db, tenantId, fn)`, which opens a trans
 - **Error response:** `{ code, message, correlation_id }` with a closed set of codes (`UNAUTHORIZED`, `TENANT_MISMATCH`,
   `INVALID_IDEMPOTENCY_KEY`, `IDEMPOTENCY_KEY_CONFLICT`, `INVALID_BODY`, `INVALID_AMOUNT`, `AMOUNT_EXCEEDS_LIMIT`,
   `INVALID_CURRENCY`, `INVALID_IBAN`, `INVALID_ACCOUNT_HOLDER`, `INTERNAL_ERROR`).
-- **Queue event** `DepositRequested` (envelope): `{ event_id, schema_version: 1, occurred_at, tenant_id, correlation_id,
+- **Queue event** `DepositRequested` (envelope): `{ event_id, event_type, schema_version: 1, occurred_at, tenant_id, correlation_id,
   data: { transaction_id, account_id, amount_cents, currency, source_account } }`. `parseDepositRequestedEvent` rejects
   unsupported schema versions, so the format can evolve without silently breaking the consumer.
 - **Read model** `GET /v1/deposits`: `{ items: [{ transaction_id, amount_cents, currency, status, created_at }] }`, newest
