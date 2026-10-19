@@ -12,7 +12,7 @@ const required = (name: string): string => {
 // Dev login mints tokens for anyone and provisions tenants with the admin role: opt-in, local development only.
 let devLogin: AppDeps["devLogin"];
 if (process.env.DEV_LOGIN_ENABLED === "true") {
-  const admin = createDb(required("ADMIN_DATABASE_URL"));
+  const admin = createDb(resolveDatabaseUrl(process.env, "ADMIN_DATABASE_URL", "ADMIN_DB"));
   devLogin = {
     provisionTenant: async (id) => {
       await admin.insertInto("tenants").values({ id, name: id }).onConflict((oc) => oc.column("id").doNothing()).execute();

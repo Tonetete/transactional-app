@@ -48,6 +48,14 @@ describe("api client (S4)", () => {
   });
 });
 
+describe("api client same-origin mode", () => {
+  it("an empty base URL sends relative requests (CloudFront routes /v1/* to the API)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json(200, { items: [] }));
+    await createApiClient("", fetchMock).listDeposits("tok");
+    expect(fetchMock.mock.calls[0]![0]).toBe("/v1/deposits");
+  });
+});
+
 describe("intent keys (S4)", () => {
   it("reuses the key for the same request until it is resolved, and renews it for a changed request", () => {
     let n = 0;

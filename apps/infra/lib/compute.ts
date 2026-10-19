@@ -13,6 +13,7 @@ import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { DB_NAME, type Database } from "./database.js";
+import { LOCAL_AWS_ENDPOINT } from "./local.js";
 
 const API_PORT = 3000;
 
@@ -26,6 +27,12 @@ export interface ComputeProps {
   image: ContainerImage;
   /** Single web origin allowed by CORS (optional). */
   corsOrigin?: string;
+  /**
+   * Local emulator profile. floci does not terminate TLS and publishes no ALB port, so the ALB also gets an HTTP:80
+   * listener (reached through CloudFront), and the API enables the simulated login with an admin database credential.
+   * Never use it outside an emulator.
+   */
+  local?: boolean;
 }
 
 /** API (ECS Fargate behind an ALB) and the outbox relay (separate Fargate service). */
@@ -36,7 +43,7 @@ export class Compute extends Construct {
   readonly jwtSecret: Secret;
   readonly cluster: Cluster;
 
-  constructor(scope: Construct, id: string, { vpc, database, queue, certificateArn, image, corsOrigin }: ComputeProps) {
+  constructor(scope: Construct, id: string, { vpc, database, queue, certificateArn, image, corsOrigin, local = false }: ComputeProps) {
     super(scope, id);
 
     const cluster = new Cluster(this, "Cluster", { vpc });
@@ -52,11 +59,23 @@ export class Compute extends Construct {
       image,
       portMappings: [{ containerPort: API_PORT }],
       logging: new AwsLogDriver({ streamPrefix: "api", logGroup: new LogGroup(this, "ApiLogs", { retention: RetentionDays.ONE_MONTH }) }),
-      environment: { ...dbEnv, PORT: String(API_PORT), ...(corsOrigin ? { CORS_ORIGIN: corsOrigin } : {}) },
+      environment: {
+        ...dbEnv,
+        PORT: String(API_PORT),
+        ...(corsOrigin ? { CORS_ORIGIN: corsOrigin } : {}),
+        ...(local ? { DEV_LOGIN_ENABLED: "true" } : {}),
+      },
       secrets: {
         DB_USER: EcsSecret.fromSecretsManager(database.appUserSecret, "username"),
         DB_PASSWORD: EcsSecret.fromSecretsManager(database.appUserSecret, "password"),
         JWT_SECRET: EcsSecret.fromSecretsManager(this.jwtSecret),
+        ...(local
+          ? {
+              // The dev login provisions tenants, which app_user may not do.
+              ADMIN_DB_USER: EcsSecret.fromSecretsManager(database.adminSecret, "username"),
+              ADMIN_DB_PASSWORD: EcsSecret.fromSecretsManager(database.adminSecret, "password"),
+            }
+          : {}),
       },
     });
 
@@ -85,6 +104,7 @@ export class Compute extends Construct {
       allowAllOutbound: false,
     });
     albSg.addIngressRule(Peer.anyIpv4(), Port.tcp(443), "HTTPS");
+    if (local) albSg.addIngressRule(Peer.anyIpv4(), Port.tcp(80), "HTTP (local emulator only)");
 
     this.loadBalancer = new ApplicationLoadBalancer(this, "LoadBalancer", {
       vpc,
@@ -99,13 +119,17 @@ export class Compute extends Construct {
       sslPolicy: SslPolicy.RECOMMENDED_TLS,
       open: false,
     });
-    listener.addTargets("Api", {
+    const apiTargets = {
       port: API_PORT,
       protocol: ApplicationProtocol.HTTP,
       targets: [this.apiService],
       healthCheck: { path: "/health", protocol: Protocol.HTTP, interval: Duration.seconds(15), healthyThresholdCount: 2, unhealthyThresholdCount: 3 },
       deregistrationDelay: Duration.seconds(30),
-    });
+    };
+    listener.addTargets("Api", apiTargets);
+    if (local) {
+      this.loadBalancer.addListener("Http", { port: 80, protocol: ApplicationProtocol.HTTP, open: false }).addTargets("ApiHttp", apiTargets);
+    }
 
     // ---- Outbox relay ----
     const relayTask = new FargateTaskDefinition(this, "RelayTask", { cpu: 256, memoryLimitMiB: 512 });
@@ -113,7 +137,7 @@ export class Compute extends Construct {
       image,
       command: ["node", "dist/relay-main.mjs"],
       logging: new AwsLogDriver({ streamPrefix: "relay", logGroup: new LogGroup(this, "RelayLogs", { retention: RetentionDays.ONE_MONTH }) }),
-      environment: { ...dbEnv, QUEUE_URL: queue.queueUrl },
+      environment: { ...dbEnv, QUEUE_URL: queue.queueUrl, ...(local ? { AWS_ENDPOINT_URL: LOCAL_AWS_ENDPOINT } : {}) },
       secrets: {
         RELAY_DB_USER: EcsSecret.fromSecretsManager(database.relayUserSecret, "username"),
         RELAY_DB_PASSWORD: EcsSecret.fromSecretsManager(database.relayUserSecret, "password"),

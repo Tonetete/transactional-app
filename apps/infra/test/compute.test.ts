@@ -10,18 +10,19 @@ import { Settlement } from "../lib/settlement.js";
 
 const CERT = "arn:aws:acm:us-east-1:111111111111:certificate/00000000-0000-0000-0000-000000000000";
 
-function synth() {
+function synth(local = false) {
   const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
   const stack = new Stack(app, "T", { env: { account: "111111111111", region: "us-east-1" } });
   const net = new Network(stack, "Network");
   const db = new Database(stack, "Database", { vpc: net.vpc });
   const messaging = new Messaging(stack, "Messaging");
   new Settlement(stack, "Settlement", { vpc: net.vpc, queue: messaging.queue, database: db });
-  new Compute(stack, "Compute", { vpc: net.vpc, database: db, queue: messaging.queue, certificateArn: CERT, image: ContainerImage.fromRegistry("example/acex-api:test") });
+  new Compute(stack, "Compute", { vpc: net.vpc, database: db, queue: messaging.queue, certificateArn: CERT, image: ContainerImage.fromRegistry("example/acex-api:test"), local });
   return Template.fromStack(stack);
 }
 
 const t = synth();
+const tl = synth(true);
 const services = () => Object.values(t.findResources("AWS::ECS::Service"));
 const taskDefs = () => Object.values(t.findResources("AWS::ECS::TaskDefinition"));
 const containerOf = (cmd: "api" | "relay") =>
@@ -109,5 +110,39 @@ describe("Least privilege (S5)", () => {
     expect(sendStatements).toHaveLength(1);
     expect(JSON.stringify(sendStatements[0]!.Resource)).toContain("MessagingQueue");
     expect(JSON.stringify(sendStatements[0]!.Resource)).not.toContain("Dlq");
+  });
+});
+
+describe("Local (floci) profile of the API", () => {
+  const apiContainer = (tpl: Template) =>
+    Object.values(tpl.findResources("AWS::ECS::TaskDefinition")).map((d) => d.Properties.ContainerDefinitions[0]).find((c) => !c.Command)!;
+
+  it("also listens on HTTP:80 (floci does not terminate TLS) and the ALB accepts port 80", () => {
+    const ports = Object.values(tl.findResources("AWS::ElasticLoadBalancingV2::Listener")).map((l) => l.Properties.Port as number).sort((a, b) => a - b);
+    expect(ports).toEqual([80, 443]);
+    const albSg = Object.values(tl.findResources("AWS::EC2::SecurityGroup")).find((s) => JSON.stringify(s.Properties.GroupDescription).includes("Load balancer"))!;
+    const albPorts = (albSg.Properties.SecurityGroupIngress as { FromPort: number }[]).map((r) => r.FromPort).sort((a, b) => a - b);
+    expect(albPorts).toEqual([80, 443]);
+  });
+
+  it("enables the simulated login with an admin credential reference, only in the local profile", () => {
+    const local = apiContainer(tl);
+    expect(local.Environment.find((e: { Name: string }) => e.Name === "DEV_LOGIN_ENABLED")?.Value).toBe("true");
+    expect(local.Secrets.map((s: { Name: string }) => s.Name)).toEqual(expect.arrayContaining(["ADMIN_DB_USER", "ADMIN_DB_PASSWORD"]));
+    const prod = apiContainer(t);
+    expect(prod.Environment.map((e: { Name: string }) => e.Name)).not.toContain("DEV_LOGIN_ENABLED");
+    expect(prod.Secrets.map((s: { Name: string }) => s.Name)).not.toContain("ADMIN_DB_PASSWORD");
+  });
+
+  it("keeps the default profile HTTPS-only", () => {
+    const listeners = Object.values(t.findResources("AWS::ElasticLoadBalancingV2::Listener"));
+    expect(listeners).toHaveLength(1);
+  });
+
+  it("points the relay's AWS SDK at the emulator by container name (floci's DNS is unreachable from the task network)", () => {
+    const relay = Object.values(tl.findResources("AWS::ECS::TaskDefinition")).map((d) => d.Properties.ContainerDefinitions[0]).find((c) => c.Command)!;
+    expect(relay.Environment.find((e: { Name: string }) => e.Name === "AWS_ENDPOINT_URL")?.Value).toBe("http://floci:4566");
+    const prodRelay = Object.values(t.findResources("AWS::ECS::TaskDefinition")).map((d) => d.Properties.ContainerDefinitions[0]).find((c) => c.Command)!;
+    expect(prodRelay.Environment.map((e: { Name: string }) => e.Name)).not.toContain("AWS_ENDPOINT_URL");
   });
 });

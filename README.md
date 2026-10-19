@@ -379,8 +379,9 @@ Accepted for the MVP and meant to be tackled later:
   is a dev-only convenience that is never enabled in the deployed stack.
 - **TLS to RDS** uses `sslmode=no-verify` (encrypted, certificate not validated); shipping the RDS CA bundle is the follow-up.
 - **No CI/CD pipeline** (the IaC is ready for GitHub Actions: `cdk synth` runs offline) and no git remote configured.
-- **Never deployed to real AWS**; the ALB and the deployed web have not been exercised from a browser (floci does not
-  publish the listener port by default).
+- **Never deployed to real AWS.** On floci the deployed web is verified end to end with `curl` through CloudFront (login,
+  deposit, `SETTLED`), not in a browser. The ALB's HTTPS listener is not reachable on floci; the local profile adds an
+  HTTP:80 listener and CloudFront routes `/v1/*` to it (see `docs/LOCAL-DEV.md`).
 - **Assumptions to confirm:** $1M per-deposit ceiling, USD/EUR/GBP in the form, accounts auto-created on first deposit,
   a single relay task.
 - Tenants are not seeded in the deployed stack (the smoke script inserts its own).

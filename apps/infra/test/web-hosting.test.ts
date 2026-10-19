@@ -57,3 +57,30 @@ describe("WebHosting (S2)", () => {
     expect(bucket(t).DeletionPolicy).toBe("Retain");
   });
 });
+
+describe("WebHosting with an API behind the same domain", () => {
+  const stack = new Stack(undefined, "A", { env: { account: "111111111111", region: "us-east-1" } });
+  new WebHosting(stack, "Web", { local: true, apiHttpOrigin: { domainName: "localhost", httpPort: 80 } });
+  const t = Template.fromStack(stack);
+  const config = Object.values(t.findResources("AWS::CloudFront::Distribution"))[0]!.Properties.DistributionConfig;
+
+  it("routes /v1/* to the HTTP origin with every method and no caching", () => {
+    const behavior = (config.CacheBehaviors as Record<string, unknown>[]).find((b) => b.PathPattern === "/v1/*")!;
+    expect(behavior.AllowedMethods).toEqual(["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]);
+    expect(behavior.CachePolicyId).toBe("4135ea2d-6df8-44a3-9df3-4b5a84be39ad"); // managed CachingDisabled
+    expect(behavior.OriginRequestPolicyId).toBeDefined();
+    const origin = (config.Origins as { DomainName: string; CustomOriginConfig?: { OriginProtocolPolicy: string; HTTPPort: number } }[]).find((o) => o.CustomOriginConfig)!;
+    expect(origin.DomainName).toBe("localhost");
+    expect(origin.CustomOriginConfig).toMatchObject({ OriginProtocolPolicy: "http-only", HTTPPort: 80 });
+  });
+
+  it("still serves the static site by default", () => {
+    expect(config.DefaultRootObject).toBe("index.html");
+    expect(config.Origins.some((o: { S3OriginConfig?: unknown }) => o.S3OriginConfig)).toBe(true);
+  });
+
+  it("has no API behavior unless an origin is given", () => {
+    const plain = Object.values(synth().findResources("AWS::CloudFront::Distribution"))[0]!.Properties.DistributionConfig;
+    expect(plain.CacheBehaviors).toBeUndefined();
+  });
+});

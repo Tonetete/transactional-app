@@ -8,19 +8,22 @@ import { LogGroup, RetentionDays } from "aws-cdk-lib/aws-logs";
 import type { IQueue } from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { DB_NAME, type Database } from "./database.js";
+import { LOCAL_AWS_ENDPOINT } from "./local.js";
 import { SETTLEMENT_TIMEOUT } from "./messaging.js";
 
 export interface SettlementProps {
   vpc: IVpc;
   queue: IQueue;
   database: Database;
+  /** Local emulator profile: reach the emulator by container name (see local.ts). */
+  local?: boolean;
 }
 
 /** SQS-triggered Lambda that settles deposits against the (still simulated) bank. */
 export class Settlement extends Construct {
   readonly handler: NodejsFunction;
 
-  constructor(scope: Construct, id: string, { vpc, queue, database }: SettlementProps) {
+  constructor(scope: Construct, id: string, { vpc, queue, database, local = false }: SettlementProps) {
     super(scope, id);
 
     const securityGroup = new SecurityGroup(this, "SecurityGroup", {
@@ -56,6 +59,7 @@ export class Settlement extends Construct {
         DB_PORT: database.instance.dbInstanceEndpointPort,
         DB_NAME,
         DB_SECRET_ARN: database.appUserSecret.secretArn,
+        ...(local ? { AWS_ENDPOINT_URL: LOCAL_AWS_ENDPOINT } : {}),
       },
     });
 

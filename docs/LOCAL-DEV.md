@@ -52,9 +52,18 @@ Verified on floci 2.3.0: a from-scratch cycle (destroy, deploy, provision, smoke
   fight over that name.) Destroying the stack does not touch the dev queues.
 - **ECR needs a user-defined network.** floci reaches its registry container by name, which the default bridge cannot
   resolve (image push fails with `503`). `scripts/floci-deploy.sh` connects `floci` and `floci-aws-ecr-registry` to a `floci-net` network.
-- **Not reachable from the host:** the ALB listener (443) and the ECS task containers are not published by the floci
-  container (it only publishes 4566), so `floci-smoke.sh` calls the API task container through the Docker bridge.
-  To use the ALB or the deployed web against the deployed API from a browser, recreate floci publishing the listener port.
+- **floci must be started with the CloudFront private-origin allowance.** Its CloudFront blocks (SSRF protection) origins that
+  resolve to local addresses, and the web's `/v1/*` origin is `localhost:80`. Run floci with
+  `-e FLOCI_SERVICES_CLOUDFRONT_ALLOWED_PRIVATE_ORIGIN_HOSTS=localhost` (keep `-v /var/run/docker.sock:/var/run/docker.sock`
+  and a volume on `/app/data`). Recreating the container loses its state (RDS, queues, stacks); the deploy script rebuilds the CDK toolkit.
+- **The deployed web talks to the API through CloudFront (same origin).** The ALB HTTPS:443 listener is not reachable from the
+  host (floci publishes only 4566, and its ELB does not terminate TLS). In the local profile the ALB also has an HTTP:80 listener
+  and the API enables the simulated login; the distribution routes `/v1/*` to `localhost:80` inside floci. No CORS involved.
+  Open the URL printed by `scripts/floci-web-deploy.sh`.
+- **floci drops CloudFront behavior methods/policies** when created through CloudFormation, so `scripts/floci-patch-cloudfront.sh`
+  re-applies them via the API (run automatically at the end of `floci-deploy.sh`).
+- **Containers reach floci by name:** floci injects `AWS_ENDPOINT_URL=http://localhost.floci.io:4566`, but on the `floci-net` network
+  that name resolves to the container itself. The local profile overrides it with `http://floci:4566` for the relay and the Lambda.
 - **No `logRetention`:** that CDK feature is a custom-resource Lambda that calls back over HTTPS, which fails on floci;
   log groups are declared explicitly instead.
 - The RDS endpoint port is whatever floci assigns (7001+), so containers use the instance endpoint port, not 5432.

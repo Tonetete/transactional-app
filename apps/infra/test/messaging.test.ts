@@ -6,14 +6,14 @@ import { Messaging } from "../lib/messaging.js";
 import { Network } from "../lib/network.js";
 import { Settlement } from "../lib/settlement.js";
 
-function synth() {
+function synth(local = false) {
   // Skip esbuild bundling: these tests assert the template, not the artifact.
   const app = new App({ context: { "aws:cdk:bundling-stacks": [] } });
   const stack = new Stack(app, "T", { env: { account: "111111111111", region: "us-east-1" } });
   const net = new Network(stack, "Network");
   const db = new Database(stack, "Database", { vpc: net.vpc });
   const messaging = new Messaging(stack, "Messaging");
-  const settlement = new Settlement(stack, "Settlement", { vpc: net.vpc, queue: messaging.queue, database: db });
+  const settlement = new Settlement(stack, "Settlement", { vpc: net.vpc, queue: messaging.queue, database: db, local });
   return { t: Template.fromStack(stack), messaging, settlement };
 }
 
@@ -67,5 +67,13 @@ describe("Settlement Lambda (S4, S2)", () => {
 
   it("is allowed into the database security group on 5432", () => {
     t.hasResourceProperties("AWS::EC2::SecurityGroupIngress", { FromPort: 5432, ToPort: 5432 });
+  });
+});
+
+describe("Settlement Lambda in the local profile", () => {
+  it("reaches the emulator by container name, and only there", () => {
+    const env = (tpl: Template) => Object.values(tpl.findResources("AWS::Lambda::Function")).find((f) => f.Properties.Handler?.includes("handler"))!.Properties.Environment.Variables;
+    expect(env(synth(true).t).AWS_ENDPOINT_URL).toBe("http://floci:4566");
+    expect(env(synth(false).t).AWS_ENDPOINT_URL).toBeUndefined();
   });
 });

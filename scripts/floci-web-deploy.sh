@@ -8,10 +8,10 @@ source scripts/floci-env.sh
 output() { aws cloudformation describe-stacks --stack-name Acex --query "Stacks[0].Outputs[?contains(OutputKey,'$1')].OutputValue" --output text; }
 BUCKET=$(output WebBucketName)
 URL=$(output WebUrl)
-ALB=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[0].DNSName' --output text)
 
-echo "building apps/web (API https://$ALB)"
-NEXT_PUBLIC_API_URL="https://$ALB" pnpm --filter @acex/web build
+# Same origin: CloudFront serves the site and routes /v1/* to the ALB (HTTP listener), so no CORS and no TLS on the ALB.
+echo "building apps/web (same-origin API)"
+NEXT_PUBLIC_API_URL="" pnpm --filter @acex/web build
 echo "uploading to s3://$BUCKET"
 aws s3 sync apps/web/out "s3://$BUCKET" --delete --only-show-errors
 ID=$(echo "$URL" | sed -E 's#https://([^.]+)\..*#\1#')

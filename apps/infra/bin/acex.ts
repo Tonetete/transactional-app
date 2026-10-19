@@ -20,7 +20,7 @@ const network = new Network(stack, "Network");
 const local = app.node.tryGetContext("target") === "floci";
 const database = new Database(stack, "Database", { vpc: network.vpc, local });
 const messaging = new Messaging(stack, "Messaging");
-new Settlement(stack, "Settlement", { vpc: network.vpc, queue: messaging.queue, database });
+new Settlement(stack, "Settlement", { vpc: network.vpc, queue: messaging.queue, database, local });
 const image = ContainerImage.fromAsset(fileURLToPath(new URL("../../..", import.meta.url)), { file: "apps/api/Dockerfile" });
 const compute = new Compute(stack, "Compute", {
   vpc: network.vpc,
@@ -29,6 +29,7 @@ const compute = new Compute(stack, "Compute", {
   certificateArn,
   corsOrigin: app.node.tryGetContext("corsOrigin") as string | undefined,
   image,
+  local,
 });
 new Provisioning(stack, "Provisioning", { vpc: network.vpc, database, cluster: compute.cluster, image });
-new WebHosting(stack, "Web", { local });
+new WebHosting(stack, "Web", { local, apiHttpOrigin: local ? { domainName: "localhost", httpPort: 80 } : undefined });
