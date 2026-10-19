@@ -10,7 +10,7 @@ Declare the AWS topology of specs/04-IAC-SPEC.md in TypeScript CDK (apps/infra),
 - S6: "Defines all cloud topology declaratively ... friction-free deployment inside GitHub Actions CI/CD pipelines" (cdk synth runs in CI-friendly `pnpm` scripts).
 
 ## Tasks
-- [ ] T1 (S1,S6) apps/infra scaffold + NetworkStack/construct: VPC 3 tiers multi-AZ; synth + assertions — inline —
+- [x] T1 (S1,S6) apps/infra scaffold + NetworkStack/construct: VPC 3 tiers multi-AZ; synth + assertions — inline — da5de35
 - [ ] T2 (S2) Database construct: RDS Postgres Multi-AZ encrypted, Secrets Manager secrets, SG rules; API env support for DB_* secrets — inline —
 - [ ] T3 (S4) Messaging + settlement Lambda: queue, TransactionsDLQ (maxReceiveCount 3), event source mapping with batch failures — inline —
 - [ ] T4 (S3,S5) Compute: Fargate API + ALB (443) + relay service, task roles, Dockerfile; no wildcard IAM test; docs — inline —
