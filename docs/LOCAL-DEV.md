@@ -44,8 +44,9 @@ source scripts/floci-env.sh
 eval "$(aws cloudformation describe-stacks --stack-name Acex --query "Stacks[0].Outputs[?contains(OutputKey,'ProvisionCommand')].OutputValue" --output text)"
 scripts/floci-smoke.sh         # tenant -> JWT -> deposit -> relay -> SQS -> Lambda -> SETTLED
 scripts/floci-web-deploy.sh    # static build of apps/web -> S3; prints the CloudFront URL served by floci
+scripts/floci-destroy.sh       # empties the web bucket, then cdk destroy
 ```
-Verified on floci 2.3.0 (all steps above pass). Things to know:
+Verified on floci 2.3.0: a from-scratch cycle (destroy, deploy, provision, smoke, web deploy) passes. Things to know:
 - **Run one mode at a time.** `dev:setup` creates `TransactionsDLQ` with other attributes than the stack does, so the
   stack fails with "queue already exists". Delete the dev queues first (`aws sqs delete-queue`) or `cdk destroy`.
 - **ECR needs a user-defined network.** floci reaches its registry container by name, which the default bridge cannot
