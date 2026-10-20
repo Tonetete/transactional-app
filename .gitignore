@@ -6,6 +6,10 @@ dist
 .next
 next-env.d.ts
 *.tsbuildinfo
-cdk.out
-cdk.context.json
 apps/api/dist
+
+.terraform/
+*.tfstate
+*.tfstate.*
+infra/**/lambda.zip
+infra/modules/**/.terraform.lock.hcl

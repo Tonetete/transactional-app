@@ -2,7 +2,7 @@
 
 ### 1. Infrastructure Philosophy & Unified Language
 
-* **Homogeneous Stack:** Adopts AWS CDK in TypeScript so infrastructure code shares the exact same language, types, and developer tooling as both the Next.js frontend and Node.js backend.
+* **Declarative, Emulator-Friendly Stack:** Adopts Terraform (HCL) as the infrastructure language: one declarative, provider-agnostic toolchain with a plan/apply workflow, modules organized by intent, and first-class support in the floci AWS emulator. This replaces the earlier AWS CDK (TypeScript) choice; see `odd/tasks/terraform-migration.md`.
 
 
 * **Pragmatic Execution:** Prioritizes operational simplicity and lean cost management during pre-launch, avoiding over-engineered cluster orchestrators before product-market validation.

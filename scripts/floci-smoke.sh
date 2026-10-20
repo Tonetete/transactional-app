@@ -6,24 +6,28 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/floci-env.sh
 TENANT="${1:-tnt_cloud}"; USER_ID="${2:-usr_cloud}"
+ADMIN_SECRET=acex-floci/database/admin; JWT_SECRET_NAME=acex-floci/api/jwt
 secret() { aws secretsmanager get-secret-value --secret-id "$1" --query SecretString --output text; }
 arn_of() { aws secretsmanager list-secrets --query "SecretList[?contains(Name,'$1')].ARN | [0]" --output text; }
 field() { python3 -c "import json,sys; print(json.load(sys.stdin)['$1'])"; }
 
-read -r DB_HOST DB_PORT < <(aws rds describe-db-instances --query "DBInstances[?starts_with(DBInstanceIdentifier,'acex-')].[Endpoint.Address,Endpoint.Port] | [0]" --output text)
-ADMIN_PW=$(secret "$(arn_of AdminSecret)" | field password)
-JWT=$(secret "$(arn_of JwtSecret)")
+read -r DB_HOST DB_PORT < <(aws rds describe-db-instances --query "DBInstances[?starts_with(DBInstanceIdentifier,'acex-floci-')].[Endpoint.Address,Endpoint.Port] | [0]" --output text)
+ADMIN_PW=$(secret "$(arn_of "$ADMIN_SECRET")" | field password)
+JWT=$(secret "$(arn_of "$JWT_SECRET_NAME")")
 
 echo "1. tenant $TENANT"
-docker run --rm -e PGPASSWORD="$ADMIN_PW" postgres:16-alpine \
+docker run --rm --network floci-net -e PGPASSWORD="$ADMIN_PW" postgres:16-alpine \
   psql -h "$DB_HOST" -p "$DB_PORT" -U root -d fintech -q -c "insert into tenants (id, name) values ('$TENANT', '$TENANT') on conflict (id) do nothing"
 
 echo "2. token"
 TOKEN=$(JWT_SECRET="$JWT" pnpm -s --filter @acex/api dev:token "$TENANT" "$USER_ID")
 
-API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -- '-api$' | head -1)
-API_IP=$(docker inspect "$API_CONTAINER" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' | awk '{print $1}')
-call() { docker run --rm curlimages/curl -s -m 15 "$@"; }
+TASK_ID=$(aws ecs list-tasks --cluster acex-floci --service-name api --query 'taskArns[0]' --output text | sed 's#.*/##')
+API_CONTAINER="floci-aws-ecs-$TASK_ID-api"   # floci names the container after the task id
+# The emulated database and the task containers sit on floci-net (created by the deploy scripts): join it, or the
+# addresses are unreachable from a throwaway container on the default bridge.
+read -r API_NET API_IP < <(docker inspect "$API_CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{$v.IPAddress}}{{"\n"}}{{end}}' | head -1)
+call() { docker run --rm --network "$API_NET" curlimages/curl -s -m 15 "$@"; }
 
 KEY="smoke_$(date +%s)"
 echo "3. deposit via $API_CONTAINER ($API_IP)"
